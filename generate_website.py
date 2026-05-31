@@ -370,6 +370,14 @@ def main():
     allgemeines = utils.get_sheet_data("Allgemeines")
     website_content = utils.get_sheet_data("Website_Content")
     clippings_raw = utils.get_sheet_data("Rezension")
+    try:
+        mvp_reviews = utils.get_sheet_data("reviews")
+    except Exception:
+        mvp_reviews = []
+    try:
+        mvp_coverage = utils.get_sheet_data("coverage")
+    except Exception:
+        mvp_coverage = []
 
     # Buch-Logik:
     buecher_liste.sort(key=lambda x: x.get("erscheinungsdatum", "0000-00-00"), reverse=True)
@@ -387,6 +395,13 @@ def main():
                     "plattform": row.get("Typ") or "Web",
                     "link": row.get("Link") or "" # 👈 NEU: Link mitnehmen
                 })
+    for row in mvp_reviews + mvp_coverage:
+        fokus_rezensionen.append({
+            "text": row.get("text") or row.get("Zitat") or "",
+            "autor": row.get("titel") or row.get("Medium/Name") or "Anonym",
+            "plattform": row.get("quelle") or row.get("Typ") or "Web",
+            "link": row.get("link") or row.get("Link") or ""
+        })
 
     # 1. Autorin & Socials aus dem Content laden
     autorin_data = {r["Key"]: r["Value"] for r in website_content if r.get("Bereich") == "Autorin"}

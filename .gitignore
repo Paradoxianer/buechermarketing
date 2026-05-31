@@ -24,11 +24,13 @@ autoren_website/node_modules/
 # Build output
 autoren_website/_site/
 website_vorschau.png
+autoren_website/src/_data/mvp_mentions.json
 
 # Local/generated data
 geprüfte_kontakte.json
 fertige_pitches/
 kampagnen_status.json
+mvp_state.json
 
 # OS / editor
 .DS_Store
