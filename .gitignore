@@ -1,0 +1,41 @@
+# Secrets
+.env
+.env.*
+*.env
+buechermarketing-943e58c2d73d.json
+*google*.json
+*credentials*.json
+*secret*.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtualenv
+venv/
+.venv/
+env/
+
+# Node
+autoren_website/node_modules/
+
+# Build output
+autoren_website/_site/
+website_vorschau.png
+
+# Local/generated data
+geprüfte_kontakte.json
+fertige_pitches/
+kampagnen_status.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Archive / old files
+*.old
+_archiv/

@@ -1,0 +1,31 @@
+---
+layout: layout.njk
+permalink: "impressum.html"
+
+---
+<section class="max-w-4xl mx-auto px-4 py-16">
+    <h1 class="text-3xl font-serif font-bold mb-10">Impressum</h1>
+    
+    <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+        <div class="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-y-4 gap-x-8 text-gray-700">
+            
+            <div class="font-bold text-gray-900">Name:</div>
+            <div>{{ impressum.impressum_name }}</div>
+
+            <div class="font-bold text-gray-900">Adresse:</div>
+            <div>{{ impressum.impressum_adresse }}</div>
+
+            <div class="font-bold text-gray-900">E-Mail:</div>
+            <div>
+                <a href="mailto:{{ impressum.kontakt_email }}" class="text-indigo-600 hover:underline">
+                    {{ impressum.kontakt_email }}
+                </a>
+            </div>
+
+            {% if impressum.impressum_telefon %}
+            <div class="font-bold text-gray-900">Telefon:</div>
+            <div>{{ impressum.impressum_telefon }}</div>
+            {% endif %}
+        </div>
+    </div>
+</section>

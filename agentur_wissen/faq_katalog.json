@@ -1,0 +1,130 @@
+{
+    "alle_buecher": [
+        {
+            "titel": "What is Love?",
+            "genre": "Jugendroman / Christliche Romance",
+            "beschreibung": "Das neue emotionale Jugendbuch von Anni E. Lindner. Eine Geschichte über das Erwachsenwerden, große Fragen und die erste Liebe.",
+            "amazon_link": "https://www.amazon.de/What-Love-Anni-Lindner/dp/3963625287",
+            "erscheinungsdatum": "2026-04-16",
+            "anzeige_datum": "16.04.2026",
+            "cover_datei": "what-is-love.png",
+            "altersempfehlung": "Ab 14 Jahren",
+            "seitenanzahl": "320 Seiten",
+            "preis_print": "15,00 €",
+            "isbn_print": "978-3861403241"
+        },
+        {
+            "titel": "Wie wir eine versunkene Stadt suchten und dabei beinahe das Klima gerettet hätten",
+            "genre": "Kinder- & Jugendbuch",
+            "beschreibung": "Hi, ich bin Emmi und 13 Jahre alt. Hast du schon mal jemanden getroffen und sofort gewusst: Das geht nicht gut mit uns beiden!? So war es bei mir und Neva. Die habe ich dieses Jahr in den Osterferien in Kroatien kennengelernt. Sie war mega eingebildet! Aber dann sind wir beide, meine Geschwister und die zwei Nachbarsjungs mitten in einem Abenteuer gelandet. Wir deckten einen Umweltskandal auf und gaben unser Bestes, um unsere Urlaubsinsel zu retten. Ich gebe zu, es lief nicht alles glatt. Ein paar Aufgaben, was den Klimaschutz angeht, haben wir dir noch übrig gelassen. Zusammen macht es sowieso am meisten Spaß, die Welt zu verändern, oder?",
+            "amazon_link": "https://www.amazon.de/versunkene-suchten-beinahe-gerettet-Himmelhof-ebook/dp/B0G5ZY7QF6",
+            "erscheinungsdatum": "2024-05-15",
+            "anzeige_datum": "15.05.2024",
+            "cover_datei": "versunkene-stadt.jpg",
+            "altersempfehlung": "Ab 11 Jahren",
+            "seitenanzahl": "192 Seiten",
+            "preis_print": "13,00 €",
+            "isbn_print": "978-3743216105"
+        },
+        {
+            "titel": "Staub fliegt höher als Glitzer",
+            "genre": "Jugendbuch",
+            "beschreibung": "Cleo weiß nichts mit ihrem Leben anzufangen. Nach schlimmen Erlebnissen in ihrer Kindheit lebt sie inzwischen in einer Wohngruppe und versucht, ihren Schulabschluss zu schaffen. Was danach kommen soll, ist ihr allerdings ein Rätsel. Sie kann nichts, sie ist niemand. Nach einem Diebstahl wird Cleo zu Sozialstunden auf dem Friedhof verdonnert. Sie ahnt nicht, wie die Geschichten der Toten sie verändern werden … Danic ist Zirkusartist mit einer großen Followerschaft im Netz. Doch während er mit seiner Familie durchs Land tourt und mit seiner Freundin in der Manege auftritt, träumt er davon, Jura zu studieren und sich für mehr Gerechtigkeit starkzumachen. Er versteht die Welt nicht mehr, als er auf ein Unglück in der Geschichte seiner Familie stößt, das alle im Zirkus beharrlich totschweigen. Ist es möglich, dass sich auf dem Friedhof mehr als Staub und in der Manege nicht nur Glitzer finden lässt?",
+            "amazon_link": "https://www.amazon.de/Staub-fliegt-h%C3%B6her-als-Glitzer/dp/3963623314",
+            "erscheinungsdatum": "2023-08-10",
+            "anzeige_datum": "10.08.2023",
+            "cover_datei": "staub-fliegt-hoeher-als-glitzer.jpg",
+            "altersempfehlung": "Ab 12 Jahren",
+            "seitenanzahl": "256 Seiten",
+            "preis_print": "14,95 €",
+            "isbn_print": "978-3743212626"
+        },
+        {
+            "titel": "Wie wir die Welt retten wollten und dabei aus Versehen das Bernsteinzimmer fanden",
+            "genre": "Kinder- & Jugendbuch",
+            "beschreibung": "Hast du schon mal versucht die Welt zu retten? Ich meine jetzt nicht wie ein Superheld, mit Cape und so. Eher durch eine richtig wichtige Aktion. Meine Geschwister und ich, wir wollten in diesem Sommer etwas gegen die Umweltverschmutzung tun. Aber dann ging irgendwie alles schief: Erst verschwand unsere Hündin, dann fiel Jo in den See und plötzlich waren wir einem ziemlich gruseligen Geheimnis auf der Spur ... Ich hätte ja nie gedacht, dass es so aufregend sein könnte, etwas Gutes zu tun! Wenn du willst, erzähle ich dir die ganze Geschichte so, wie es wirklich war. Aber, psst: Die Details muss nicht jeder wissen …",
+            "amazon_link": "https://www.amazon.de/retten-wollten-Versehen-Bernsteinzimmer-fanden/dp/3963623012",
+            "erscheinungsdatum": "2022-03-22",
+            "anzeige_datum": "22.03.2022",
+            "cover_datei": "weltretter.jpg",
+            "altersempfehlung": "Ab 10 Jahren",
+            "seitenanzahl": "208 Seiten",
+            "preis_print": "12,95 €",
+            "isbn_print": "978-3743209763"
+        },
+        {
+            "titel": "Die Wahrheit schmeckt nach Marzipan",
+            "genre": "Jugendbuch",
+            "beschreibung": "Ein berührender Jugendroman über die Suche nach Identität, echten Werten und den Mut, die Wahrheit zu sagen.",
+            "amazon_link": "https://www.amazon.de/Die-Wahrheit-schmeckt-nach-Marzipan/dp/3963622121",
+            "erscheinungsdatum": "2021-11-05",
+            "anzeige_datum": "05.11.2021",
+            "cover_datei": "die-wahrheit-schmeckt-nach-marzipan.jpg",
+            "altersempfehlung": "Ab 12 Jahren",
+            "seitenanzahl": "224 Seiten",
+            "preis_print": "12,95 €",
+            "isbn_print": "978-3743204560"
+        },
+{
+        "titel": "Franzi und das Geheimnis von Burg Rosenfels (Band 1)",
+        "genre": "Kinderbuch / Christliches Abenteuer",
+        "beschreibung": "Franzi fährt mit ihrer Klasse auf Klassenfahrt nach Burg Rosenfels. Dort lernt sie Ben kennen. Durch Zufall entdecken sie in der Burg einen alten Geheimgang. Sie öffnen eine geheime Tür und landen in einer Kammer, in der sich ein geheimnisvolles, uraltes Buch und ein Kristall befinden. Das Buch erzählt die Geschichte von Prinz Ludewig IV., der vor einer schweren Herzensentscheidung steht. Beim Lesen merken Franzi und Ben, wie die Geschichte auch sie selbst zu verändern beginnt.",
+        "amazon_link": "https://www.amazon.de/Franzi-das-Geheimnis-Burg-Rosenfels/dp/3417285094",
+        "erscheinungsdatum": "2012-01-24",
+        "anzeige_datum": "24.01.2012",
+        "cover_datei": "franzi-band1.jpg",
+        "altersempfehlung": "Ab 9 Jahren",
+        "seitenanzahl": "188 Seiten",
+        "preis_print": "12,95 €",
+        "isbn_print": "978-3417285093"
+    },
+    {
+        "titel": "Franzi rettet Burg Rosenfels (Band 2)",
+        "genre": "Kinderbuch / Christliches Abenteuer",
+        "beschreibung": "In den Sommerferien fahren Franzi und Ben noch einmal zur Burg Rosenfels. Eigentlich wollen sie nur ein mitgenommenes Heft zurückbringen, was sich jedoch als schwieriger herausstellt als gedacht. Zu allem Überfluss taucht auch noch Emma auf und sorgt für Wirbel. Als die Kinder erfahren, dass die Jugendherberge in der Burg aus Geldmangel geschlossen werden soll, stecken sie plötzlich mitten in einer neuen, spannenden Schatzsuche, die ihre Freundschaft auf eine harte Probe stellt.",
+        "amazon_link": "https://www.amazon.de/Franzi-rettet-Burg-Rosenfels-Lindner/dp/3417285523",
+        "erscheinungsdatum": "2012-09-01",
+        "anzeige_datum": "01.09.2012",
+        "cover_datei": "franzi-band2.jpg",
+        "altersempfehlung": "Ab 9 Jahren",
+        "seitenanzahl": "256 Seiten",
+        "preis_print": "12,95 €",
+        "isbn_print": "978-3417285529"
+    },
+    {
+        "titel": "Franzi und das Medaillon von Burg Rosenfels (Band 3)",
+        "genre": "Kinderbuch / Christliches Abenteuer",
+        "beschreibung": "Die ereignisreichen Ferien sind vorbei und für Franzi wird der Start an einer neuen Schule schwerer als gedacht, da in ihrer Klasse ein Mädchen heftig gemobbt wird und auch Franzi ins Abseits gerät. Dann schenkt Emma ihr ein Medaillon, das Mut verleihen soll. Franzi glaubt nicht an solchen Aberglauben, doch als sie entdeckt, dass das Schmuckstück etwas Außergewöhnliches birgt, lässt sie sich auf ein Wagnis ein. Ein lebensgefährlicher Einsatz um Freundschaft und Anerkennung beginnt.",
+        "amazon_link": "https://www.amazon.de/Franzi-das-Medaillon-Burg-Rosenfels/dp/3417285868",
+        "erscheinungsdatum": "2013-02-18",
+        "anzeige_datum": "18.02.2013",
+        "cover_datei": "franzi-band3.jpg",
+        "altersempfehlung": "Ab 9 Jahren",
+        "seitenanzahl": "240 Seiten",
+        "preis_print": "12,95 €",
+        "isbn_print": "978-3417285864"
+    }    ],
+    "lesungen_konditionen": {
+        "buchbar_fuer": "Schulen, Bibliotheken, Buchhandlungen, Literaturfestivals",
+        "honorar_basis": "Ab 350,- € zzgl. Fahrtkosten",
+        "technik_anforderung": "Mikrofon (ab 50 Personen), kleiner Tisch, ein Glas stilles Wasser",
+        "kontakt_leitung": "info@anni-lindner.de"
+    },
+    "faqs_presse_und_blogger": [
+        {
+            "id": "faq_001",
+            "frage": "Wie erhalte ich ein Rezensionsexemplar oder ein Interview?",
+            "antwort": "Pressevertreter und Buchblogger können ein Rezensionsexemplar (Print oder E-Book) direkt über das Kontaktformular oder per E-Mail an info@anni-lindner.de anfordern. Interviewanfragen für Print, Radio oder Podcasts sind jederzeit willkommen."
+        },
+        {
+            "id": "faq_002",
+            "frage": "Dürfen Zitate und Coverbilder für Rezensionen verwendet werden?",
+            "antwort": "Ja. Das Cover sowie der Klappentext dürfen für Rezensionen auf Blogs, Social Media (Instagram, TikTok, LovelyBooks) und in Printmedien honorarfrei verwendet werden. Bitte nutzen Sie dafür das bereitgestellte Presse-Kit."
+        },
+        {
+            "id": "faq_003",
+            "frage": "Kann man Anni E. Lindner für Lesungen und Workshops buchen?",
+            "antwort": "Ja, Anni E. Lindner liest regelmäßig in Schulen (ideal für die Klassenstufen 8-10), Bibliotheken und Buchhandlungen. Neben klassischen Lesungen werden auch interaktive Workshops für Jugendliche zum Thema Liebe angeboten."
+        }
+    ]
+}

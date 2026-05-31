@@ -1,0 +1,191 @@
+---
+layout: layout.njk
+---
+
+<!-- 1. PREMIUM DOUBLE-HERO SEKTION (Autorin & Buch im direkten Fokus) -->
+<header id="welcome" class="max-w-7xl mx-auto px-4 py-12 md:py-20">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+        
+        <!-- LINKE SPALTE: ÜBER ANNI -->
+        <div class="lg:col-span-5 bg-slate-50 p-8 rounded-3xl border border-gray-100 flex flex-col items-center text-center lg:text-left lg:items-start">
+            <div class="w-40 h-40 rounded-full bg-slate-200 shadow-md overflow-hidden border-4 border-white mb-6 flex items-center justify-center relative">
+                <img src="/images/anni-lindner.png" alt="Anni E. Lindner" class="w-full h-full object-cover relative z-10" onerror="this.style.opacity='0'">
+                <span class="text-gray-400 text-xs text-center px-4 absolute z-0 font-serif italic">[ Foto: Anni ]</span>
+            </div>
+            <span class="text-xs font-bold uppercase tracking-widest text-indigo-600">Die Autorin</span>
+            <h2 class="text-3xl font-serif font-bold mt-1 text-gray-900">Anni E. Lindner</h2>
+            <p class="text-gray-600 text-sm mt-4 leading-relaxed">{{ autorin.kurz_bio_p1 }}</p>
+            <p class="text-gray-600 text-sm mt-3 leading-relaxed">{{ autorin.kurz_bio_p2 }}</p>
+
+            <div class="mt-6 flex gap-4 items-center">
+                <span class="text-xs font-bold uppercase tracking-widest text-indigo-400">Folge mir:</span>
+                <!-- Instagram -->
+                {% if socials.insta_link and socials.insta_link != "" %}
+                <a href="{{ socials.insta_link }}" target="_blank" class="hover:scale-110 transition-transform">
+                    <img src="/assets/icons/instagram.svg" alt="Instagram" class="w-8 h-8">
+                </a>
+                {% endif %}
+
+                <!-- TikTok -->
+                {% if socials.tiktok_link and socials.tiktok_link != "" %}
+                <a href="{{ socials.tiktok_link }}" target="_blank" class="hover:scale-110 transition-transform">
+                    <img src="/assets/icons/tiktok.svg" alt="TikTok" class="w-8 h-8">
+                </a>
+                {% endif %}
+
+                <!-- YouTube (Vorbereitet) -->
+                {% if socials.youtube_link and socials.youtube_link != "" %}
+                <a href="{{ socials.youtube_link }}" target="_blank" class="hover:scale-110 transition-transform">
+                    <img src="/assets/icons/youtube.svg" alt="YouTube" class="w-8 h-8">
+                </a>
+                {% endif %}
+
+                <!-- Newsletter (Vorbereitet) -->
+                {% if socials.newsletter_link and socials.newsletter_link != "" %}
+                <a href="{{ socials.newsletter_link }}" target="_blank" class="hover:scale-110 transition-transform">
+                    <img src="/assets/icons/newsletter.svg" alt="Newsletter" class="w-8 h-8">
+                </a>
+                {% endif %}
+            </div>
+
+        </div>
+
+        <!-- RECHTE SPALTE: DAS NEUE BUCH-HIGHLIGHT -->
+        <div class="lg:col-span-7 grid grid-cols-1 md:grid-cols-12 gap-8 items-center bg-white p-2 md:p-6">
+            
+            <!-- Buch-Infos -->
+            <div class="md:col-span-7 order-2 md:order-1">
+                <span class="text-xs font-bold tracking-widest text-amber-600 uppercase bg-amber-50 px-3 py-1 rounded-full">🔥 Aktuelle Neuerscheinung</span>
+                <h1 class="text-3xl md:text-4xl font-serif font-black text-gray-900 mt-3 leading-tight">{{ books_list[0].titel }}</h1>
+                <p class="text-gray-600 text-sm mt-4 leading-relaxed">{{ books_list[0].beschreibung }}</p>
+                
+                <!-- Fakten Box schlank -->
+                <div class="mt-6 bg-slate-50 p-4 rounded-xl border border-gray-100 grid grid-cols-2 gap-3 text-xs">
+                    <div><span class="text-gray-400 block">Alter</span> <strong class="text-gray-700">{{ books_list[0].altersempfehlung }}</strong></div>
+                    <div><span class="text-gray-400 block">Seiten</span> <strong class="text-gray-700">{{ books_list[0].seitenanzahl }}</strong></div>
+                    <div><span class="text-gray-400 block">Erschienen</span> <strong class="text-gray-700">{{ books_list[0].anzeige_datum }}</strong></div>
+                    <div><span class="text-gray-400 block">Preis</span> <strong class="text-gray-700">{{ books_list[0].preis_print }}</strong></div>
+                </div>
+                
+                <!-- Buttons überarbeitet -->
+                <!-- Buttons einheitlich im Premium-Design -->
+<div class="mt-6 flex flex-wrap gap-3">
+    <a href="{{ books_list[0].amazon_link }}" target="_blank" class="bg-amber-500 text-slate-950 font-bold text-xs px-5 py-3 rounded-xl shadow-sm hover:bg-amber-600 transition flex items-center justify-center gap-2">
+        🛒 Bei Amazon bestellen
+    </a>
+    
+    <a href="/downloads/Anni_E_Lindner_Pressekit.zip" download class="bg-indigo-600 text-white font-medium text-xs px-5 py-3 rounded-xl shadow-sm hover:bg-indigo-700 transition flex items-center justify-center gap-2">
+        📦 Presse-Kit (ZIP)
+    </a>
+    
+    <a href="mailto:info@anni-lindner.de?subject=Rezensionsexemplar: {{ books_list[0].titel }}" class="bg-white text-indigo-600 border border-indigo-200 font-semibold text-xs px-5 py-3 rounded-xl shadow-sm hover:bg-indigo-50/50 hover:border-indigo-300 transition flex items-center justify-center gap-2">
+        📧 Rezensionsexemplar
+    </a>
+</div>
+            </div>
+
+            <!-- Buch-Cover -->
+            <div class="md:col-span-5 flex justify-center order-1 md:order-2">
+                <div class="w-48 h-64 bg-slate-100 rounded-xl shadow-xl overflow-hidden border border-gray-100 flex items-center justify-center relative">
+                    <img src="/images/{{ books_list[0].cover_datei }}" alt="{{ books_list[0].titel }}" class="w-full h-full object-cover relative z-10" onerror="this.style.opacity='0'">
+                    <span class="text-gray-400 text-xs font-serif italic absolute z-0 text-center px-2">[ Cover: {{ books_list[0].titel }} ]</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</header>
+
+<section class="max-w-7xl mx-auto px-4 pb-12 -mt-4">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {% for rez in fokus_rezensionen %}
+        <a href="{{ rez.link }}" target="_blank" class="block group">
+            <div class="bg-indigo-50/40 border border-indigo-100/50 p-5 rounded-2xl italic text-gray-600 text-xs shadow-sm flex flex-col justify-between h-full hover:border-indigo-300 hover:shadow-md transition-all">
+                <p class="leading-relaxed group-hover:text-indigo-900 transition-colors">"{{ rez.text }}"</p>
+                <span class="mt-3 block font-sans font-bold text-indigo-900 not-italic group-hover:underline">
+                    — {{ rez.autor }}{% if rez.plattform %} ({{ rez.plattform }}){% endif %}
+                </span>
+            </div>
+        </a>
+        {% else %}
+        <p class="text-gray-500 text-sm italic">Aktuell liegen keine veröffentlichten Rezensionen vor.</p>
+        {% endfor %}
+    </div>
+</section>
+
+<!-- 2. SEKTION: BIBLIOGRAFIE -->
+<section id="buecherliste" class="bg-slate-100 py-16 border-t border-gray-200">
+    <div class="max-w-6xl mx-auto px-4">
+        <div class="text-center max-w-2xl mx-auto mb-12">
+            <span class="text-xs font-bold uppercase tracking-widest text-indigo-600">Bibliografie</span>
+            <h2 class="text-3xl font-serif font-bold mt-2">Alle Werke von Anni E. Lindner</h2>
+            <p class="text-gray-600 mt-2">Entdecke die Vielfalt der Geschichten und Romane.</p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {% for werk in books_list %}
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200/60 overflow-hidden flex flex-col justify-between hover:shadow-md transition duration-200">
+                <div class="p-6">
+                    <div class="w-full h-64 bg-slate-50 rounded-xl mb-4 overflow-hidden flex items-center justify-center border border-slate-200 relative">
+                        <img src="/images/{{ werk.cover_datei }}" alt="{{ werk.titel }}" class="w-full h-full object-cover relative z-10" onerror="this.style.opacity='0'">
+                        <span class="text-slate-400 text-xs text-center px-4 absolute z-0 font-serif italic">[ Cover: {{ werk.titel }} ]</span>
+                    </div>
+                    <span class="text-xs font-semibold tracking-wider text-indigo-600 uppercase bg-indigo-50 px-2 py-0.5 rounded-md">{{ werk.genre }}</span>
+                    <h3 class="text-xl font-bold text-gray-900 mt-2 font-serif">{{ werk.titel }}</h3>
+                    <p class="text-gray-600 text-sm mt-2 leading-relaxed">{{ werk.beschreibung }}</p>
+                </div>
+                <div class="p-6 pt-0">
+                    <!-- Amazon-Link korrigiert: zieht sich jetzt die individuelle Buch-URL -->
+                    <a href="{{ werk.amazon_link }}" target="_blank" class="block text-center text-sm bg-slate-800 text-white font-medium py-2.5 px-4 rounded-xl hover:bg-slate-900 transition">
+                        🛒 Bei Amazon bestellen
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- 3. SEKTION: FAQS -->
+<section id="faqs" class="bg-white py-16 border-t border-b border-gray-100">
+    <div class="max-w-4xl mx-auto px-4">
+        <h2 class="text-3xl font-serif font-bold text-center mb-12">Häufig gestellte Fragen (FAQ)</h2>
+        <div class="space-y-6">
+            {% for faq in faqs %}
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h3 class="text-lg font-bold text-gray-800 flex items-start">
+                    <span class="text-indigo-600 mr-2">Q:</span> {{ faq.frage }}
+                </h3>
+                <p class="text-gray-600 mt-2 pl-6 leading-relaxed">{{ faq.antwort }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- 4. SEKTION: LESUNGEN -->
+<section id="lesungen" class="bg-indigo-900 text-white py-16">
+    <div class="max-w-4xl mx-auto px-4">
+        <div class="text-center max-w-2xl mx-auto mb-12">
+            <span class="text-xs font-bold uppercase tracking-widest text-indigo-300">Veranstaltungen</span>
+            <h2 class="text-3xl font-serif font-bold mt-2">Anni E. Lindner buchen</h2>
+            <p class="text-indigo-200 mt-2">Für lebendige Lesungen und interaktive Workshops.</p>
+        </div>
+        
+        <div class="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/10 grid grid-cols-1 md:grid-cols-2 gap-8 text-sm">
+            <div>
+                <h3 class="text-lg font-semibold mb-4 text-indigo-300">📋 Konditionen</h3>
+                <ul class="space-y-3 text-indigo-100">
+                    <li><b>Zielgruppen:</b> {{ lesungen.buchbar_fuer }}</li>
+                    <li><b>Honorar:</b> {{ lesungen.honorar_basis }}</li>
+                    <li><b>Technik:</b> {{ lesungen.technik_anforderung }}</li>
+                </ul>
+            </div>
+            <div class="flex flex-col justify-center bg-white/5 p-6 rounded-xl border border-white/5">
+                <a href="mailto:{{ lesungen.kontakt_leitung }}?subject=Lesungsanfrage" class="block text-center bg-white text-indigo-900 font-bold py-3 px-4 rounded-xl hover:bg-indigo-50 transition">
+                    ✉️ Jetzt Anfrage senden
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
