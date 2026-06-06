@@ -6,11 +6,11 @@ Einträgen der Social_Media_Queue.
 
 Ziel:
 - Zitatkarten, Hook-Cover und Story-Grafiken lokal rendern
-- Buchcover aus lokalem assets-Ordner verwenden, wenn vorhanden
+- Buchcover aus Books.cover_datei und agentur_wissen/bilder verwenden
 - fertige Bilder lokal speichern
 - Bildpfade in Social_Media_Queue unter Bild_URLs eintragen
 
-Erwartete lokale Assets (optional):
+Erwartete lokale Assets (Fallback, optional):
 - assets/book_cover.png
 - assets/book_cover.jpg
 - assets/anni-lindner.png
@@ -21,7 +21,6 @@ Starten:
 """
 
 import os
-import textwrap
 from datetime import datetime
 
 from PIL import Image, ImageDraw, ImageFont
@@ -30,10 +29,11 @@ import utils_system as utils
 
 LOG_TAB = "Logbuch"
 QUEUE_TAB = "Social_Media_Queue"
-CONFIG_TAB = "Konfiguration"
 GENERAL_TAB = "Allgemeines"
+BOOKS_TAB = "Books"
 OUTPUT_DIR = "generated_assets"
 ASSETS_DIR = "assets"
+BOOK_IMAGES_DIR = os.path.join("agentur_wissen", "bilder")
 DEFAULT_STATUS_FILTER = "Freigabe_ausstehend"
 
 INSTAGRAM_POST_SIZE = (1080, 1080)
@@ -60,7 +60,7 @@ def log(level: str, message: str):
 
 
 # -----------------------------
-# SHEETS / CONFIG
+# SHEETS
 # -----------------------------
 
 def get_rows(tab_name: str):
@@ -77,6 +77,26 @@ def get_general_value(key: str, default=""):
         return value if value not in (None, "") else default
     except:
         return default
+
+
+def pick_value(row, candidates):
+    for key in candidates:
+        value = row.get(key)
+        if value not in (None, ""):
+            return str(value).strip()
+    return ""
+
+
+def get_book_row():
+    titel = get_general_value("buchtitel", get_general_value("book_name", "")).strip().lower()
+    if not titel:
+        return None
+
+    for row in get_rows(BOOKS_TAB):
+        row_titel = pick_value(row, ["titel", "Titel", "Buchtitel", "buchtitel"]).lower()
+        if row_titel == titel:
+            return row
+    return None
 
 
 def ensure_output_dir():
@@ -108,12 +128,21 @@ def load_font(size: int, bold: bool = False):
 
 
 def find_cover_image():
-    candidates = [
+    book_row = get_book_row()
+    if book_row:
+        cover_file = pick_value(book_row, ["cover_datei", "Cover_Datei", "cover", "Cover"])
+        if cover_file:
+            candidate = os.path.join(BOOK_IMAGES_DIR, cover_file)
+            if os.path.exists(candidate):
+                return candidate
+            log("WARNUNG", f"cover_datei gefunden, Datei aber nicht vorhanden: {candidate}")
+
+    fallback_candidates = [
         os.path.join(ASSETS_DIR, "book_cover.png"),
         os.path.join(ASSETS_DIR, "book_cover.jpg"),
         os.path.join(ASSETS_DIR, "book_cover.jpeg"),
     ]
-    for path in candidates:
+    for path in fallback_candidates:
         if os.path.exists(path):
             return path
     return None
@@ -320,6 +349,12 @@ def main():
     ensure_output_dir()
     title = get_general_value("buchtitel", get_general_value("book_name", "What is Love?"))
     author = get_general_value("autorin_name", "Anni E. Lindner")
+
+    cover_path = find_cover_image()
+    if cover_path:
+        log("INFO", f"Verwendetes Cover: {cover_path}")
+    else:
+        log("WARNUNG", "Kein Cover gefunden — Assets werden ohne Buchcover gerendert")
 
     rows = get_rows(QUEUE_TAB)
     candidates = []
