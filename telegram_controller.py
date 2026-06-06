@@ -10,6 +10,7 @@ Beenden:   Strg+C  (sendet Abmeldung an Telegram)
 Befehle (per Telegram):
   /hilfe                — Alle Befehle anzeigen
   /status               — Kampagnen-Übersicht aus Google Sheets
+  /plan [Fokus]         — Neue Recherche-Aufgaben planen
   /recherche [Nische]   — Neue Zielgruppen-Recherche starten
   /pitches              — Pitch-Anschreiben generieren (mit Freigabe)
   /website              — Website bauen & deployen (mit Freigabe)
@@ -34,7 +35,7 @@ import utils_system as utils
 # KONFIGURATION
 # ─────────────────────────────────────────────────────────────
 
-VERSION            = "1.0.0"
+VERSION            = "1.1.0"
 OFFSET_FILE        = ".tg_offset"  # Lokale Datei — kein Sheet-API-Verbrauch
 SCHED_INTERVAL_SEC = 60            # Sekunden zwischen Scheduler-Checks
 TG_TIMEOUT         = 30            # Telegram Long-Poll Timeout in Sekunden
@@ -212,7 +213,7 @@ def run_script(script_name: str, args: list = None, background: bool = False) ->
         return False
 
 
-# ─────────────────────────────────────────────────────────────
+# ──────────────────────────────��──────────────────────────────
 # KOMMANDO-HANDLER
 # ─────────────────────────────────────────────────────────────
 
@@ -224,6 +225,11 @@ def cmd_hilfe(_args):
         "  /hilfe             — Diese Übersicht\n"
         "  /status            — Kampagnen-Übersicht\n"
         "  /log [n]           — Letzte n Logzeilen (Standard: 10)\n\n"
+        "🧠 <b>Planung</b>\n"
+        "  /plan              — Neue Recherche-Aufgaben planen\n"
+        "  /plan Fokus        — Planung mit Schwerpunkt\n"
+        "    z.B.: /plan Christliche Medien\n"
+        "    z.B.: /plan Jugendbuch Blogger Instagram\n\n"
         "🔍 <b>Recherche</b>\n"
         "  /recherche Nische  — Neue Recherche starten\n"
         "    z.B.: /recherche Christliche Zeitschriften\n"
@@ -281,6 +287,37 @@ def cmd_status(_args):
     except Exception as e:
         log("FEHLER", f"cmd_status: {e}")
         send(f"❌ Status-Fehler: {e}")
+
+
+def cmd_plan(args):
+    fokus = " ".join(args).strip() if args else ""
+
+    if fokus:
+        text = (
+            f"🧠 <b>Neue Planung starten</b>\n\n"
+            f"Fokus: <b>{fokus}</b>\n\n"
+            f"Der Planner erstellt 5 neue Recherche-Aufgaben\n"
+            f"und schreibt sie in den Tab <b>Aufgaben</b>.\n\n"
+            f"Jetzt starten?"
+        )
+        buttons = [
+            {"text": "✅ Ja, planen!", "data": f"run_plan::{fokus}"},
+            {"text": "❌ Abbrechen",   "data": "cancel"}
+        ]
+    else:
+        text = (
+            "🧠 <b>Neue Planung starten</b>\n\n"
+            "Der Planner erstellt 5 neue Recherche-Aufgaben\n"
+            "für die nächsten sinnvollen Zielgruppen/Nischen\n"
+            "und schreibt sie in den Tab <b>Aufgaben</b>.\n\n"
+            "Jetzt starten?"
+        )
+        buttons = [
+            {"text": "✅ Ja, planen!", "data": "run_plan"},
+            {"text": "❌ Abbrechen",   "data": "cancel"}
+        ]
+
+    send_keyboard(text, buttons)
 
 
 def cmd_recherche(args):
@@ -430,6 +467,19 @@ def handle_callback(callback: dict):
         log("INFO", "Aktion abgebrochen (Telegram)")
         return
 
+    if data.startswith("run_plan::"):
+        fokus = data.split("::", 1)[1].strip()
+        edit_message(msg_id, f"⏳ Planner läuft mit Fokus: <b>{fokus}</b>")
+        log("INFO", f"Freigabe via Telegram: planner.py mit Fokus '{fokus}'")
+        run_script("planner.py", args=[fokus], background=True)
+        return
+
+    if data == "run_plan":
+        edit_message(msg_id, "⏳ Planner läuft...")
+        log("INFO", "Freigabe via Telegram: planner.py")
+        run_script("planner.py", background=True)
+        return
+
     if data in _CALLBACKS:
         script, status_text = _CALLBACKS[data]
         edit_message(msg_id, f"⏳ {status_text}")
@@ -450,6 +500,7 @@ _COMMANDS = {
     "/help":      cmd_hilfe,
     "/start":     cmd_hilfe,
     "/status":    cmd_status,
+    "/plan":      cmd_plan,
     "/recherche": cmd_recherche,
     "/pitches":   cmd_pitches,
     "/website":   cmd_website,
