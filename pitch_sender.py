@@ -55,7 +55,7 @@ def log(level: str, message: str):
         print(f"[WARNUNG] Logbuch konnte nicht geschrieben werden: {e}", flush=True)
 
 
-# ─────────────────────────────────────────────────────────────
+# ��────────────────────────────────────────────────────────────
 # CONFIG / SHEETS
 # ─────────────────────────────────────────────────────────────
 
@@ -67,7 +67,6 @@ def get_config_value(key: str, default=""):
         return default
 
 
-
 def get_max_per_run():
     raw = get_config_value("mail_send_max_per_run", str(DEFAULT_MAX_PER_RUN))
     try:
@@ -76,11 +75,9 @@ def get_max_per_run():
         return DEFAULT_MAX_PER_RUN
 
 
-
 def get_tracking_sheet():
     client = utils.get_google_client()
     return client.open_by_key(utils.SPREADSHEET_ID).worksheet(TRACKING_TAB)
-
 
 
 def get_tracking_rows():
@@ -91,11 +88,9 @@ def get_tracking_rows():
         return []
 
 
-
 def get_header_map(sheet):
     headers = sheet.row_values(1)
     return {name.strip(): idx for idx, name in enumerate(headers, start=1) if name.strip()}
-
 
 
 def pick_value(row: dict, candidates: list):
@@ -106,9 +101,10 @@ def pick_value(row: dict, candidates: list):
     return ""
 
 
-
 def select_sendable_rows(rows: list, max_per_run: int):
     selected = []
+    valid_count = 0
+
     for idx, row in enumerate(rows, start=2):
         status = str(row.get("Status", "")).strip()
         if status not in SENDABLE_STATUSES:
@@ -116,7 +112,15 @@ def select_sendable_rows(rows: list, max_per_run: int):
 
         recipient = pick_value(row, ["E-Mail", "Email", "Mail"])
         subject = pick_value(row, ["Betreff", "Subject"])
-        body = pick_value(row, ["Pitch-Text", "Pitch_Text", "Pitchtext", "Anschreiben", "Text"])
+        body = pick_value(row, [
+            "Textquelle",
+            "Generierter Pitch (Text)",
+            "Pitch-Text",
+            "Pitch_Text",
+            "Pitchtext",
+            "Anschreiben",
+            "Text",
+        ])
         medium = pick_value(row, ["Medium/Name", "Medium", "Name"])
 
         if not recipient or not subject or not body:
@@ -127,7 +131,7 @@ def select_sendable_rows(rows: list, max_per_run: int):
                 "subject": subject,
                 "body": body,
                 "valid": False,
-                "error": "Pflichtfelder fehlen (E-Mail, Betreff oder Pitch-Text)",
+                "error": "Pflichtfelder fehlen (E-Mail, Betreff oder Textquelle)",
             })
             continue
 
@@ -140,12 +144,12 @@ def select_sendable_rows(rows: list, max_per_run: int):
             "valid": True,
             "error": "",
         })
+        valid_count += 1
 
-        if len([x for x in selected if x["valid"]]) >= max_per_run:
+        if valid_count >= max_per_run:
             break
 
     return selected
-
 
 
 def update_tracking_row(sheet, header_map: dict, row_index: int, updates: dict):
@@ -237,7 +241,7 @@ def main():
             error_items.append(item)
             update_tracking_row(sheet, header_map, row_index, {
                 "Status": ERROR_STATUS,
-                "Versand_Fehler": item["error"],
+                "Fehlerfeld / Notiz": item["error"],
             })
             log("WARNUNG", f"Versand übersprungen für {item['medium']}: {item['error']}")
             continue
@@ -247,8 +251,8 @@ def main():
             sent_at = datetime.now().strftime("%Y-%m-%d %H:%M")
             update_tracking_row(sheet, header_map, row_index, {
                 "Status": SUCCESS_STATUS,
-                "Gesendet_Am": sent_at,
-                "Versand_Fehler": "",
+                "Versanddatum": sent_at,
+                "Fehlerfeld / Notiz": "",
             })
             sent_count += 1
             log("OK", f"Pitch gesendet an {item['recipient']} ({item['medium']})")
@@ -257,7 +261,7 @@ def main():
             error_items.append({**item, "error": error_text})
             update_tracking_row(sheet, header_map, row_index, {
                 "Status": ERROR_STATUS,
-                "Versand_Fehler": error_text[:300],
+                "Fehlerfeld / Notiz": error_text[:300],
             })
             log("FEHLER", f"Versand fehlgeschlagen für {item['recipient']}: {error_text}")
 

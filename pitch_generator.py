@@ -396,22 +396,20 @@ def main():
             log("WARNUNG", f"Pitch konnte nicht erzeugt werden für {kontakt['medium']}: {e}")
             continue
 
-        created_at = datetime.now().strftime("%Y-%m-%d %H:%M")
         pitch_id = f"pitch_{datetime.now().strftime('%d%H%M%S')}_{index:02d}"
+        note = f"Quelle: Rohdaten | Score: {kontakt['score']} | URL: {kontakt['url']}"
 
         created_rows.append([
             pitch_id,
             kontakt["typ"],
             kontakt["medium"],
             kontakt["email"],
-            kontakt["ansprechpartner"],
             betreff,
+            kontakt["ansprechpartner"],
             pitch_text,
-            created_at,
-            "",
             "",
             "Entwurf",
-            f"Quelle: Rohdaten | Score: {kontakt['score']} | URL: {kontakt['url']}",
+            note,
         ])
 
         update_raw_status_by_key(
