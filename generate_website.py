@@ -2,6 +2,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import zipfile
 import requests
 import time
@@ -25,6 +26,7 @@ ELEVENTY_DOWNLOADS_DIR = os.path.join(WEBSITE_DIR, "src", "downloads")
 AUTHOR_IMAGE_NAME = "anni-lindner.png"
 PRESSKIT_ZIP_NAME = "Anni_E_Lindner_Pressekit.zip"
 PRESSKIT_WORK_DIR = os.path.join(WEBSITE_DIR, "tmp_presskit")
+PREVIEW_IMAGE_PATH = "website_vorschau.png"
 
 AUTHOR_SHORT_BIO = (
     "Anni E. Lindner, geboren 1980 in Freiberg/Sachsen, ist Schriftstellerin und Heilsarmeeoffizierin. "
@@ -95,6 +97,51 @@ def ask_llama_for_preview(fokus_buch, rezensionen):
     return f"📖 Fokus-Buch: {fokus_buch.get('titel')}\n💬 Rezensionen: {len(rezensionen)} Stück geladen."
 
 
+def tg_api(method: str, data: dict = None, files=None):
+    url = f"https://api.telegram.org/bot{utils.TELEGRAM_TOKEN}/{method}"
+    if files:
+        return requests.post(url, data=data or {}, files=files, timeout=30)
+    return requests.post(url, json=data or {}, timeout=30)
+
+
+def send_preview_with_buttons(image_path):
+    abs_path = os.path.abspath(image_path)
+    print(f"[📱 TELEGRAM] Sende Website-Vorschau: {abs_path}")
+    if not image_path or not os.path.exists(image_path):
+        print(f"[❌ FEHLER] Bilddatei nicht gefunden: {image_path}")
+        return None
+
+    caption = (
+        "🏗️ *WEBSITE-BUILD FERTIG*\n\n"
+        "Die Website wurde lokal gebaut und das Pressekit aktualisiert.\n"
+        "Soll ich diese Website jetzt hochladen?"
+    )
+
+    with open(image_path, "rb") as photo:
+        response = tg_api(
+            "sendPhoto",
+            data={
+                "chat_id": utils.TELEGRAM_CHAT_ID,
+                "caption": caption,
+                "parse_mode": "Markdown",
+                "reply_markup": json.dumps({
+                    "inline_keyboard": [[
+                        {"text": "🚀 Ja, Website hochladen", "callback_data": "website_deploy_yes"},
+                        {"text": "🛑 Abbrechen", "callback_data": "website_deploy_no"}
+                    ]]
+                }),
+            },
+            files={"photo": photo},
+        )
+
+    if response.status_code == 200:
+        print("[✅ TELEGRAM] Vorschau erfolgreich gesendet!")
+        return response.json().get("result", {}).get("message_id")
+
+    print(f"[❌ TELEGRAM] Fehler beim Senden der Vorschau: {response.status_code} {response.text}")
+    return None
+
+
 def pick_value(row, keys, default=""):
     for key in keys:
         value = row.get(key)
@@ -152,7 +199,7 @@ def build_press_questions(book):
     )
 
 
-def build_press_overview(book, socials, website_content):
+def build_press_overview(book, socials):
     instagram = socials.get("insta_link", "")
     return (
         "PRESSEINFORMATION\n"
@@ -187,18 +234,9 @@ def build_presskit(fokus_buch, website_content):
     socials = {r["Key"]: r["Value"] for r in website_content if r.get("Bereich") == "Social"}
     lesungen = {r["Key"]: r["Value"] for r in website_content if r.get("Bereich") == "Lesungen"}
 
-    safe_write_text(
-        os.path.join(PRESSKIT_WORK_DIR, "00_Presseinfo_Anni_E_Lindner.txt"),
-        build_press_overview(fokus_buch, socials, website_content),
-    )
-    safe_write_text(
-        os.path.join(PRESSKIT_WORK_DIR, "01_Autorin_Kurzbio.txt"),
-        AUTHOR_SHORT_BIO,
-    )
-    safe_write_text(
-        os.path.join(PRESSKIT_WORK_DIR, "02_Autorin_Langbio.txt"),
-        AUTHOR_LONG_BIO,
-    )
+    safe_write_text(os.path.join(PRESSKIT_WORK_DIR, "00_Presseinfo_Anni_E_Lindner.txt"), build_press_overview(fokus_buch, socials))
+    safe_write_text(os.path.join(PRESSKIT_WORK_DIR, "01_Autorin_Kurzbio.txt"), AUTHOR_SHORT_BIO)
+    safe_write_text(os.path.join(PRESSKIT_WORK_DIR, "02_Autorin_Langbio.txt"), AUTHOR_LONG_BIO)
     safe_write_text(
         os.path.join(PRESSKIT_WORK_DIR, f"03_Buchinfo_{fokus_buch.get('titel', 'Buch').replace(' ', '_').replace('?', '')}.txt"),
         build_book_press_text(fokus_buch),
@@ -207,10 +245,7 @@ def build_presskit(fokus_buch, website_content):
         os.path.join(PRESSKIT_WORK_DIR, f"04_Faktenblatt_{fokus_buch.get('titel', 'Buch').replace(' ', '_').replace('?', '')}.txt"),
         format_book_facts(fokus_buch),
     )
-    safe_write_text(
-        os.path.join(PRESSKIT_WORK_DIR, "05_Pressefragen_und_Themen.txt"),
-        build_press_questions(fokus_buch),
-    )
+    safe_write_text(os.path.join(PRESSKIT_WORK_DIR, "05_Pressefragen_und_Themen.txt"), build_press_questions(fokus_buch))
     safe_write_text(
         os.path.join(PRESSKIT_WORK_DIR, "06_Lesungen_und_Veranstaltungen.txt"),
         (
@@ -230,7 +265,7 @@ def build_presskit(fokus_buch, website_content):
     copied_cover = copy_if_exists(cover_src, os.path.join(PRESSKIT_WORK_DIR, "bilder", cover_name or "cover.png"))
     copied_author = copy_if_exists(author_src, os.path.join(PRESSKIT_WORK_DIR, "bilder", AUTHOR_IMAGE_NAME))
 
-    if copied_author:
+    if copied_cover or copied_author:
         safe_write_text(
             os.path.join(PRESSKIT_WORK_DIR, "bilder", "bildnachweis.txt"),
             "Autorenfoto: Anni E. Lindner (© Foto: Maggie Renger)\nCover: bereitgestellt für Presse, Rezensionen und Berichterstattung.",
@@ -249,10 +284,7 @@ def build_presskit(fokus_buch, website_content):
 
 
 def upload_directory_to_ftp():
-    import os
-    import time
     import socket
-    from ftplib import FTP
 
     print("[FTP] Starte Smart Upload für zickigen Server")
     local_dir = LOCAL_BUILD_DIR
@@ -367,82 +399,10 @@ def upload_directory_to_ftp():
     except Exception as e:
         print(f"[TELEGRAM] Fehler beim Senden: {e}")
 
-    if failed and not uploaded:
-        return "failed"
-    elif failed:
-        return "partial"
-    return "success"
+    return "failed" if failed and not uploaded else "partial" if failed else "success"
 
 
-def send_telegram_proposal_with_image(image_path):
-    abs_path = os.path.abspath(image_path)
-    print(f"[📱 TELEGRAM] Suche Bilddatei unter: {abs_path}")
-    if not image_path or not os.path.exists(image_path):
-        print(f"[❌ FEHLER] Bilddatei nicht gefunden: {image_path}")
-        return None
-
-    url = f"https://api.telegram.org/bot{utils.TELEGRAM_TOKEN}/sendPhoto"
-    caption = "🏗️ *NEUER WEBSITE-BUILD BEREIT!*\n\nHier ist die visuelle Vorschau deiner neuen Seite. Soll ich den FTP-Upload jetzt starten?"
-    try:
-        with open(image_path, "rb") as photo:
-            files = {"photo": photo}
-            data = {
-                "chat_id": utils.TELEGRAM_CHAT_ID,
-                "caption": caption,
-                "parse_mode": "Markdown",
-                "reply_markup": json.dumps({
-                    "inline_keyboard": [[
-                        {"text": "🚀 Ja, FTP-Upload!", "callback_data": "deploy_yes"},
-                        {"text": "🛑 Abbrechen", "callback_data": "reject"}
-                    ]]
-                })
-            }
-            response = requests.post(url, files=files, data=data)
-        if response.status_code == 200:
-            result = response.json().get("result", {})
-            print("[✅ TELEGRAM] Vorschau erfolgreich gesendet!")
-            return result.get("message_id")
-        else:
-            print(f"[❌ TELEGRAM] Fehlercode: {response.status_code}")
-            print(f"[❌ TELEGRAM] Antwort-Details: {response.text}")
-            return None
-    except Exception as e:
-        print(f"[❌ TELEGRAM] Unerwarteter Fehler beim Senden: {e}")
-        return None
-
-
-def wait_for_approval(message_id):
-    url = f"https://api.telegram.org/bot{utils.TELEGRAM_TOKEN}/getUpdates"
-    offset = None
-    try:
-        init_res = requests.get(url, params={"timeout": 0}).json()
-        updates = init_res.get("result", [])
-        if updates:
-            offset = updates[-1]["update_id"] + 1
-    except Exception:
-        pass
-
-    print("[⏳ SCHLEIFE] Warte auf Freigabe via Telegram...", flush=True)
-    while True:
-        try:
-            response = requests.get(url, params={"timeout": 1, "offset": offset}).json()
-            for update in response.get("result", []):
-                offset = update["update_id"] + 1
-                if "callback_query" in update:
-                    callback = update["callback_query"]
-                    data = callback["data"]
-                    requests.post(f"https://api.telegram.org/bot{utils.TELEGRAM_TOKEN}/answerCallbackQuery", json={
-                        "callback_query_id": callback["id"],
-                        "text": "Verarbeitet!"
-                    })
-                    return True if data == "deploy_yes" else False
-            print(".", end="", flush=True)
-            time.sleep(0.5)
-        except Exception:
-            time.sleep(2)
-
-
-def capture_website_screenshot(output_path="preview.png"):
+def capture_website_screenshot(output_path=PREVIEW_IMAGE_PATH):
     print("[📸 SCREENSHOT] Starte Browser-Modul für visuelle Vorschau...", flush=True)
     try:
         from playwright.sync_api import sync_playwright
@@ -462,14 +422,9 @@ def capture_website_screenshot(output_path="preview.png"):
         return None
 
 
-def main():
-    print("=" * 60)
-    print("🏗️ START DES WEBMASTER-AGENTS (GOOGLE-TABELLEN MODUS)")
-    print("=" * 60)
+def load_website_data():
     print("[📊 DATEN] Lade aktuelle Inhalte aus Google Sheets...")
-
     buecher_liste = utils.get_sheet_data("Books")
-    allgemeines = utils.get_sheet_data("Allgemeines")
     website_content = utils.get_sheet_data("Website_Content")
     clippings_raw = utils.get_sheet_data("Rezension")
 
@@ -484,9 +439,13 @@ def main():
                     "text": row.get("Zitat") or "",
                     "autor": row.get("Medium/Name") or "Anonym",
                     "plattform": row.get("Typ") or "Web",
-                    "link": row.get("Link") or ""
+                    "link": row.get("Link") or "",
                 })
 
+    return buecher_liste, website_content, fokus_buch, fokus_rezensionen
+
+
+def write_eleventy_data(buecher_liste, website_content, fokus_rezensionen):
     autorin_data = {r["Key"]: r["Value"] for r in website_content if r.get("Bereich") == "Autorin"}
     socials_data = {r["Key"]: r["Value"] for r in website_content if r.get("Bereich") == "Social"}
 
@@ -521,34 +480,52 @@ def main():
     with open(os.path.join(ELEVENTY_DATA_DIR, "impressum.json"), "w", encoding="utf-8") as f:
         json.dump(formatted_impressum, f, indent=4, ensure_ascii=False)
 
-    print(f"[✅ DATEN] {len(fokus_rezensionen)} Rezensionen & Content aus Google Sheets geladen.")
 
+def build_website():
+    print("=" * 60)
+    print("🏗️ WEBSITE-BUILD")
+    print("=" * 60)
+    buecher_liste, website_content, fokus_buch, fokus_rezensionen = load_website_data()
+    write_eleventy_data(buecher_liste, website_content, fokus_rezensionen)
+    print(f"[✅ DATEN] {len(fokus_rezensionen)} Rezensionen & Content aus Google Sheets geladen.")
     build_presskit(fokus_buch, website_content)
 
     print("\n[🛠️ BUILD] Starte Eleventy-Kompilierung...")
-    try:
-        subprocess.run(["npx", "@11ty/eleventy"], cwd=WEBSITE_DIR, check=True)
-    except Exception as e:
-        print(f"[🛠️ BUILD] ❌ Eleventy-Fehler: {e}")
-        return
+    subprocess.run(["npx", "@11ty/eleventy"], cwd=WEBSITE_DIR, check=True)
 
-    foto_pfad = capture_website_screenshot("website_vorschau.png")
-    msg_id = send_telegram_proposal_with_image(foto_pfad)
+    foto_pfad = capture_website_screenshot(PREVIEW_IMAGE_PATH)
+    if foto_pfad:
+        send_preview_with_buttons(foto_pfad)
+    return True
 
-    if msg_id and wait_for_approval(msg_id):
-        status = upload_directory_to_ftp()
-        if status == "success":
-            status_text = "🎉 *PROJEKT LIVE!*\nWebsite erfolgreich hochgeladen:\nwww.anni-lindner.de"
-        elif status == "partial":
-            status_text = "⚠️ *TEILWEISE ERFOLGREICH*\nEinige Dateien konnten nicht hochgeladen werden.\nWebsite evtl. unvollständig!"
-        else:
-            status_text = "❌ *FTP-UPLOAD FEHLGESCHLAGEN!*"
 
-        utils.send_telegram(status_text, parse_mode="Markdown")
-        if foto_pfad and os.path.exists(foto_pfad):
-            os.remove(foto_pfad)
+def deploy_website():
+    print("=" * 60)
+    print("🚀 WEBSITE-DEPLOY")
+    print("=" * 60)
+    status = upload_directory_to_ftp()
+    if status == "success":
+        utils.send_telegram("🎉 <b>PROJEKT LIVE!</b>\nWebsite erfolgreich hochgeladen:\nwww.anni-lindner.de")
+    elif status == "partial":
+        utils.send_telegram("⚠️ <b>TEILWEISE ERFOLGREICH</b>\nEinige Dateien konnten nicht hochgeladen werden.")
     else:
-        print("\n🛑 Deployment abgebrochen.")
+        utils.send_telegram("❌ <b>FTP-UPLOAD FEHLGESCHLAGEN!</b>")
+    return status == "success"
+
+
+def main():
+    mode = (sys.argv[1].strip().lower() if len(sys.argv) > 1 else "build")
+    try:
+        if mode == "build":
+            build_website()
+        elif mode == "deploy":
+            deploy_website()
+        else:
+            print(f"Unbekannter Modus: {mode}")
+            sys.exit(1)
+    except Exception as e:
+        print(f"[❌ FEHLER] {e}")
+        raise
 
 
 if __name__ == "__main__":
