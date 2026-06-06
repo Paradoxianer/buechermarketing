@@ -1,10 +1,11 @@
 """
-review_monitor.py v3.1 (AI Scoring)
+review_monitor.py v3.2 (AI Scoring)
 ✅ Amazon + LovelyBooks + Web
 ✅ AI-basierter Relevanzscore (0–100)
 ✅ nur Treffer >= Mindestscore werden übernommen
 ✅ Dublettenfilter gegen bestehende Rezensionen
 ✅ speichert letzter_review_run in Konfiguration
+✅ Allgemeines als Primärquelle, Books als Beschreibungs-Fallback
 ✅ kompatibel mit telegram_controller und erweitertem Rezension-Tab
 
 Erwartete Spalten in 'Rezension':
@@ -113,31 +114,71 @@ def get_general_value(key, default=""):
         return default
 
 
-def get_book():
-    books = get_sheet_rows(BOOKS_TAB)
-    if books:
-        try:
-            books.sort(key=lambda x: str(pick_value(x, ["erscheinungsdatum", "Erscheinungsdatum"])), reverse=True)
-        except:
-            pass
-        b = books[0]
-        return {
-            "titel": pick_value(b, ["titel", "Titel"]),
-            "autorin": pick_value(b, ["autorin", "Autorin"]),
-            "beschreibung": pick_value(b, ["beschreibung", "Beschreibung", "Klappentext"]),
-            "genre": pick_value(b, ["genre", "Genre"]),
-            "amazon_link": pick_value(b, ["amazon_link", "Amazon_Link", "amazon_url", "Amazon_URL"]),
-            "lovelybooks_url": pick_value(b, ["lovelybooks_url", "LovelyBooks_URL", "lovelybooks_link"]),
-        }
-
+def build_general_book():
+    titel = get_general_value("buchtitel", "") or get_general_value("book_name", "")
     return {
-        "titel": get_general_value("buchtitel", "What is Love?"),
-        "autorin": get_general_value("autorin_name", "Anni E. Lindner"),
-        "beschreibung": get_general_value("zielsetzung", ""),
+        "titel": titel,
+        "autorin": get_general_value("autorin_name", ""),
+        "beschreibung": "",
         "genre": get_general_value("genre", ""),
-        "amazon_link": "",
-        "lovelybooks_url": "",
+        "zielsetzung": get_general_value("zielsetzung", ""),
+        "amazon_link": get_general_value("amazon_link", "") or get_general_value("amazon_url", ""),
+        "lovelybooks_url": get_general_value("lovelybooks_url", ""),
     }
+
+
+def enrich_book_from_books(book):
+    books = get_sheet_rows(BOOKS_TAB)
+    if not books:
+        return book
+
+    ziel_titel = (book.get("titel") or "").strip().lower()
+    ziel_autorin = (book.get("autorin") or "").strip().lower()
+
+    exact_match = None
+    fallback_match = None
+
+    for row in books:
+        row_titel = pick_value(row, ["titel", "Titel", "Buchtitel", "buchtitel"]).lower()
+        row_autorin = pick_value(row, ["autorin", "Autorin", "autor", "Autor", "autorin_name"]).lower()
+
+        if ziel_titel and row_titel == ziel_titel and (not ziel_autorin or row_autorin == ziel_autorin):
+            exact_match = row
+            break
+        if ziel_titel and row_titel == ziel_titel:
+            fallback_match = row
+
+    matched = exact_match or fallback_match
+    if not matched:
+        return book
+
+    beschreibung = pick_value(matched, ["beschreibung", "Beschreibung", "Klappentext", "Kurzbeschreibung"])
+    genre = pick_value(matched, ["genre", "Genre"])
+    amazon_link = pick_value(matched, ["amazon_link", "Amazon_Link", "amazon_url", "Amazon_URL"])
+    lovelybooks_url = pick_value(matched, ["lovelybooks_url", "LovelyBooks_URL", "lovelybooks_link"])
+
+    if beschreibung:
+        book["beschreibung"] = beschreibung
+    if genre and not book.get("genre"):
+        book["genre"] = genre
+    if amazon_link and not book.get("amazon_link"):
+        book["amazon_link"] = amazon_link
+    if lovelybooks_url and not book.get("lovelybooks_url"):
+        book["lovelybooks_url"] = lovelybooks_url
+
+    return book
+
+
+def get_book():
+    book = build_general_book()
+    book = enrich_book_from_books(book)
+
+    if not book.get("titel"):
+        book["titel"] = "What is Love?"
+    if not book.get("autorin"):
+        book["autorin"] = "Anni E. Lindner"
+
+    return book
 
 
 def get_existing_links():
@@ -223,6 +264,7 @@ BUCH:
 Titel: {book.get('titel')}
 Autor: {book.get('autorin')}
 Genre: {book.get('genre')}
+Zielsetzung: {book.get('zielsetzung')}
 Beschreibung:
 {book.get('beschreibung')}
 
@@ -233,12 +275,13 @@ Link:
 {link}
 
 AUFGABE:
-Bewerte von 0 bis 100 wie wahrscheinlich es ist, dass dieser Text genau dieses Buch beschreibt.
+Bewerte von 0 bis 100 wie wahrscheinlich es ist, dass dieser Text genau dieses Buch beschreibt oder eine relevante Erwähnung dazu ist.
 
 WICHTIG:
 - Sprache ist Deutsch
 - Song/Film/etc. = niedriger Score
-- echte Rezension oder echte Bucherwähnung = hoher Score
+- echte Rezension = hoher Score
+- relevante Social-Erwähnung / Ankündigung / Post zum Buch = mittlerer bis hoher Score
 - Wenn Titel und Autor klar passen, bewerte höher
 - Antworte streng nur als JSON
 
@@ -299,26 +342,14 @@ def get_amazon_review_url(url):
     match = re.search(r"/dp/([A-Z0-9]+)", str(url))
     if not match:
         return None
-    return f"https://www.amazon.de/product-reviews/{match.group(1)}"
+    asin = match.group(1)
+    return {
+        "product_url": f"https://www.amazon.de/dp/{asin}",
+        "reviews_url": f"https://www.amazon.de/product-reviews/{asin}",
+    }
 
 
-def fetch_amazon(book):
-    url = get_amazon_review_url(book.get("amazon_link"))
-    if not url:
-        return []
-
-    log("INFO", f"Amazon: {url}")
-    try:
-        r = requests.get(url, headers=REQUEST_HEADERS, timeout=30)
-        html = r.text
-    except Exception as e:
-        log("WARNUNG", f"Amazon Request Fehler: {e}")
-        return []
-
-    if "captcha" in html.lower():
-        log("WARNUNG", "Amazon blockiert")
-        return []
-
+def parse_amazon_reviews_from_html(html, link):
     soup = BeautifulSoup(html, "html.parser")
     reviews = []
 
@@ -333,13 +364,40 @@ def fetch_amazon(book):
             "source": "Amazon",
             "type": "Amazon",
             "text": text,
-            "link": url,
+            "link": link,
             "rating": rating,
             "score": 100,
             "reason": "Direkter Amazon-Rezensionstreffer",
         })
 
     return reviews
+
+
+def fetch_amazon(book):
+    urls = get_amazon_review_url(book.get("amazon_link"))
+    if not urls:
+        log("INFO", "Amazon-Link nicht vorhanden")
+        return []
+
+    for label, url in [("Produktseite", urls["product_url"]), ("Review-Seite", urls["reviews_url"])]:
+        log("INFO", f"Amazon {label}: {url}")
+        try:
+            r = requests.get(url, headers=REQUEST_HEADERS, timeout=30)
+            html = r.text
+        except Exception as e:
+            log("WARNUNG", f"Amazon Request Fehler ({label}): {e}")
+            continue
+
+        html_l = html.lower()
+        if "captcha" in html_l or "anmelden" in html_l or "login" in html_l:
+            log("WARNUNG", f"Amazon blockiert oder Login nötig ({label})")
+            continue
+
+        reviews = parse_amazon_reviews_from_html(html, url)
+        if reviews:
+            return reviews
+
+    return []
 
 
 # -----------------------------
@@ -393,8 +451,13 @@ def build_queries(book):
         f"{base} rezension",
         f"{base} buch",
         f"{base}",
-        f"{base} site:youtube.com",
+        f"{base} instagram",
+        f"{base} youtube",
+        f"{base} ankündigung",
         f"{base} site:instagram.com",
+        f"{base} site:youtube.com",
+        f"{base} lovelybooks",
+        f"{base} amazon",
     ]
 
 
@@ -492,7 +555,7 @@ def run():
     try:
         log("INFO", "🚀 Start Review Monitor AI")
         book = get_book()
-        log("INFO", f"Buch: {book.get('titel')}")
+        log("INFO", f"Buch: {book.get('titel')} | Autorin: {book.get('autorin')}")
 
         existing_links = get_existing_links()
         all_results = []
@@ -517,9 +580,14 @@ def run():
         unique = []
         for r in all_results:
             link = str(r.get("link", "")).strip().lower()
-            if not link or link in seen:
+            text_key = clean_text(r.get("text", ""), 120)
+            dedupe_key = f"{link}|{text_key}"
+            if not link:
+                continue
+            if link in seen or dedupe_key in seen:
                 continue
             seen.add(link)
+            seen.add(dedupe_key)
             unique.append(r)
 
         if not unique:
