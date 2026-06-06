@@ -13,6 +13,14 @@ SPREADSHEET_ID   = os.getenv("SPREADSHEET_ID")
 TELEGRAM_TOKEN   = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
+# Mail / IMAP / SMTP
+IMAP_HOST = os.getenv("IMAP_HOST")
+IMAP_PORT = int(os.getenv("IMAP_PORT", 143))
+SMTP_HOST = os.getenv("SMTP_HOST")
+SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
+MAIL_USER = os.getenv("MAIL_USER")
+MAIL_PASS = os.getenv("MAIL_PASS")
+
 # FTP Zugangsdaten
 FTP_HOST       = os.getenv("FTP_HOST")
 FTP_USER       = os.getenv("FTP_USER")
