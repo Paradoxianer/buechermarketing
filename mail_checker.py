@@ -24,6 +24,7 @@ Starten:
 
 import email
 import email.utils
+import html
 import imaplib
 import re
 from datetime import datetime
@@ -45,6 +46,7 @@ DEFAULT_MODEL = "llama3:8b"
 DEFAULT_TEMP = 0.2
 MAILBOX = "INBOX"
 MAX_UNSEEN_MAILS = 20
+MAX_TELEGRAM_PREVIEWS = 5
 
 STATUS_MAP = {
     "positiv": "Reagiert_positiv",
@@ -107,6 +109,7 @@ def decode_mime(value):
     return "".join(decoded).strip()
 
 
+
 def extract_plain_text(msg):
     if msg.is_multipart():
         for part in msg.walk():
@@ -126,11 +129,11 @@ def extract_plain_text(msg):
                 if payload is None:
                     continue
                 charset = part.get_content_charset() or "utf-8"
-                html = payload.decode(charset, errors="replace")
-                html = re.sub(r"<br\s*/?>", "\n", html, flags=re.IGNORECASE)
-                html = re.sub(r"<[^>]+>", " ", html)
-                html = re.sub(r"\s+", " ", html)
-                return html.strip()
+                html_text = payload.decode(charset, errors="replace")
+                html_text = re.sub(r"<br\s*/?>", "\n", html_text, flags=re.IGNORECASE)
+                html_text = re.sub(r"<[^>]+>", " ", html_text)
+                html_text = re.sub(r"\s+", " ", html_text)
+                return html_text.strip()
         return ""
 
     payload = msg.get_payload(decode=True)
@@ -138,6 +141,7 @@ def extract_plain_text(msg):
         return ""
     charset = msg.get_content_charset() or "utf-8"
     return payload.decode(charset, errors="replace").strip()
+
 
 
 def normalize_body(text: str):
@@ -160,6 +164,15 @@ def normalize_body(text: str):
     cleaned = "\n".join(lines)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     return cleaned.strip()
+
+
+
+def shorten(text: str, limit: int = 120):
+    text = re.sub(r"\s+", " ", (text or "").strip())
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1].rstrip() + "…"
+
 
 
 def fetch_unseen_messages():
@@ -225,6 +238,7 @@ def get_tracking_rows():
         return []
 
 
+
 def find_tracking_match(mail_item: dict, rows: list):
     sender_email = mail_item["from_email"].strip().lower()
     subject = mail_item["subject"].strip().lower()
@@ -252,6 +266,7 @@ def find_tracking_match(mail_item: dict, rows: list):
     if best_score <= 0:
         return None
     return best_index
+
 
 
 def update_tracking_row(row_index: int, status_text: str, summary: str, latest_message: str):
@@ -298,6 +313,7 @@ def heuristic_classification(subject: str, body: str):
     return None, None
 
 
+
 def classify_mail(llm, subject: str, body: str):
     heuristic_label, heuristic_summary = heuristic_classification(subject, body)
     if heuristic_label:
@@ -340,7 +356,29 @@ ZUSAMMENFASSUNG: <maximal 20 Wörter>
 # TELEGRAM
 # ─────────────────────────────────────────────────────────────
 
-def send_summary_to_telegram(total_mails: int, matched: int, unmatched: int, status_counter: dict):
+def build_unmatched_preview(unmatched_items: list):
+    if not unmatched_items:
+        return []
+
+    lines = ["", "<b>Nicht zugeordnete Mails:</b>"]
+    for idx, item in enumerate(unmatched_items[:MAX_TELEGRAM_PREVIEWS], start=1):
+        sender = html.escape(shorten(item.get("from_email", "Unbekannt"), 80))
+        subject = html.escape(shorten(item.get("subject", "(ohne Betreff)"), 100))
+        label = html.escape(item.get("label", "irrelevant"))
+        summary = html.escape(shorten(item.get("summary", ""), 120))
+
+        lines.extend([
+            "",
+            f"{idx}. <b>Von:</b> {sender}",
+            f"   <b>Betreff:</b> {subject}",
+            f"   <b>Typ:</b> {label}",
+            f"   <b>Kurz:</b> {summary}",
+        ])
+    return lines
+
+
+
+def send_summary_to_telegram(total_mails: int, matched: int, unmatched: int, status_counter: dict, unmatched_items: list):
     lines = [
         "📬 <b>Mail-Check abgeschlossen</b>",
         "",
@@ -353,6 +391,8 @@ def send_summary_to_telegram(total_mails: int, matched: int, unmatched: int, sta
 
     for key in ["positiv", "negativ", "rueckfrage", "autoreply", "irrelevant"]:
         lines.append(f"- {key}: {status_counter.get(key, 0)}")
+
+    lines.extend(build_unmatched_preview(unmatched_items))
 
     try:
         utils.send_telegram("\n".join(lines), parse_mode="HTML")
@@ -375,7 +415,7 @@ def main():
 
     if not messages:
         log("INFO", "Keine ungelesenen E-Mails gefunden")
-        send_summary_to_telegram(0, 0, 0, {})
+        send_summary_to_telegram(0, 0, 0, {}, [])
         return
 
     llm = build_llm()
@@ -384,6 +424,7 @@ def main():
     matched = 0
     unmatched = 0
     status_counter = {}
+    unmatched_items = []
 
     for item in messages:
         label, summary = classify_mail(llm, item["subject"], item["body"])
@@ -393,6 +434,12 @@ def main():
         row_index = find_tracking_match(item, tracking_rows)
         if row_index is None:
             unmatched += 1
+            unmatched_items.append({
+                "from_email": item["from_email"],
+                "subject": item["subject"],
+                "label": label,
+                "summary": summary,
+            })
             log("INFO", f"Mail ohne Match: {item['from_email']} | {item['subject']}")
             continue
 
@@ -411,6 +458,7 @@ def main():
         matched=matched,
         unmatched=unmatched,
         status_counter=status_counter,
+        unmatched_items=unmatched_items,
     )
     log("OK", f"Mail Checker beendet — {len(messages)} Mails geprüft, {matched} Matches")
 
