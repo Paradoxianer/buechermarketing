@@ -47,6 +47,19 @@ SKIP_TRACKING_STATUSES = {
     "Reagiert_negativ",
     "Abgelehnt",
 }
+PLACEHOLDER_CONTACTS = {
+    "",
+    "unbekannt",
+    "redaktion",
+    "team",
+    "info",
+    "kontakt",
+    "service",
+    "support",
+    "presse",
+    "buchhaltung",
+    "leserservice",
+}
 
 
 # ─────────────────────────────────────────────────────────────
@@ -227,8 +240,14 @@ def select_contacts_for_pitching():
 # PROMPTING / PARSING
 # ─────────────────────────────────────────────────────────────
 
+def is_placeholder_contact(ansprechpartner: str) -> bool:
+    normalized = re.sub(r"\s+", " ", (ansprechpartner or "").strip().lower())
+    normalized = normalized.replace("e-mail", "email")
+    return normalized in PLACEHOLDER_CONTACTS
+
+
 def build_style_rules(outreach_style: str, ansprechpartner: str):
-    unknown = ansprechpartner.lower() == "unbekannt"
+    unknown = is_placeholder_contact(ansprechpartner)
 
     if outreach_style == "presse":
         anrede = "Sehr geehrte Damen und Herren," if unknown else f"Guten Tag {ansprechpartner},"
