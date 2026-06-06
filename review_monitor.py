@@ -28,7 +28,7 @@ import utils_system as utils
 OLLAMA_URL = "http://localhost:11434/api/generate"
 MODEL = "qwen3:8b"
 
-MIN_SCORE = 75
+MIN_SCORE = 60
 DEFAULT_MAX_RESULTS = 8
 LAST_RUN_KEY = "letzter_review_run"
 
@@ -207,7 +207,7 @@ def generate(prompt):
                 "prompt": prompt,
                 "stream": False,
             },
-            timeout=300,
+            timeout=900,
         )
         return r.json().get("response", "")
     except Exception as e:
