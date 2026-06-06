@@ -273,10 +273,13 @@ def build_llm():
 
 
 def score_contact_with_llm(llm, genre: str, zielsetzung: str, typ: str, titel: str, url: str, text: str):
+    buchtitel = get_general_value("buchtitel", "Unbekannt")
+
     prompt = f"""
 Du bewertest Web-Treffer für eine Buchmarketing-Agentur.
 
 KONTEXT:
+- Buchtitel: {buchtitel}
 - Buchgenre: {genre}
 - Zielsetzung: {zielsetzung}
 - Kontaktkategorie: {typ}
@@ -287,14 +290,33 @@ WEBSEITEN-INHALT (AUSZUG):
 {text[:3500]}
 
 AUFGABE:
-Bewerte von 0 bis 100, wie relevant dieser Kontakt für PR, Rezensionen,
-Interviews, Blogger-Outreach oder Reichweitenaufbau für dieses Buch ist.
+Bewerte von 0 bis 100, wie relevant dieser Kontakt für die Vermarktung
+ eines deutschsprachigen Buches ist.
+
+WICHTIG:
+Das Buch soll NICHT nur eng für Coming-of-Age oder Romantik bewertet werden.
+Denke bewusst breiter in passenden Zielgruppen für:
+- Jugendbücher allgemein
+- Kinder- und Jugendbuchmedien
+- Buchblogs und Rezensionsportale
+- Kultur / Literatur / Feuilleton
+- christliche Medien
+- Familienmagazine
+- pädagogische / schulische Kontexte
+- lokale oder regionale Presse
+- Podcasts, Magazine, Communities und Multiplikatoren rund um Bücher, Jugend, Familie oder Werte
+
+Ein Treffer kann also auch dann relevant sein, wenn er nicht direkt nur
+auf Coming-of-Age oder Romantik spezialisiert ist, sondern allgemein gut
+zu Jugendbuch, Familie, Literatur, Bildung, christlichen Themen oder
+buchnaher Öffentlichkeitsarbeit passt.
 
 Achte auf:
-- Passt die Zielgruppe zu Jugendbuch / Coming-of-Age / Romantik?
-- Gibt es Hinweise auf Rezensionen, Bücher, Kultur, Feuilleton, Buchblog, Podcast, Magazin, Influencer?
-- Wirkt die Seite wie ein echter erreichbarer Kontakt und nicht wie ein irrelevantes Portal?
-- Gibt es Hinweise auf Kontaktmöglichkeit oder Ansprechpartner?
+- Passt die Zielgruppe zu Jugendbüchern oder literaturnahen Themen?
+- Könnte der Kontakt für Rezensionen, Pressearbeit, Interviews, Reichweite oder Empfehlungen nützlich sein?
+- Gibt es Hinweise auf echte Redaktion, Blogger, Magazin, Plattform, Community oder Ansprechpartner?
+- Ist die Seite vertrauenswürdig und praktisch nutzbar?
+- Gibt es Kontaktmöglichkeiten?
 
 ANTWORTE NUR ALS JSON:
 {{
@@ -356,7 +378,7 @@ def send_final_summary(total_added: int, total_top_hits: int, current_top_hits: 
 
 # ─────────────────────────────────────────────────────────────
 # MAIN
-# ─────────────────────────────────────────────────��───────────
+# ─────────────────────────────────────────────────────────────
 
 def main():
     log("INFO", "Pitch Preparer gestartet")
