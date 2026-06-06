@@ -17,6 +17,8 @@ Befehle (per Telegram):
   /website              — Website bauen & deployen (mit Freigabe)
   /social               — Social-Media-Posts vorbereiten (mit Freigabe)
   /mail                 — Posteingang per IMAP prüfen
+  /review            — Neue Rezensionen suchen & reporten
+
   /log [n]              — Letzte n Log-Einträge (Standard: 10)
 ═══════════════════════════════════════════════════════════════
 """
@@ -244,6 +246,9 @@ def cmd_hilfe(_args):
         "  /website           — Website bauen &amp; deployen\n\n"
         "📱 <b>Social Media</b>\n"
         "  /social            — Posts vorbereiten\n"
+        "📊 Monitoring\n"
+        "  /review            — Neue Rezensionen suchen & reporten\n"
+
     )
 
 
@@ -470,6 +475,11 @@ def cmd_log(args):
     except Exception as e:
         send(f"❌ Log-Fehler: {e}")
 
+def cmd_review(args):
+    send("📚 Starte Review Monitor...")
+    log("INFO", "Review Monitor manuell gestartet")
+    run_script(SCRIPTS["review"], background=True)
+
 
 # ─────────────────────────────────────────────────────────────
 # CALLBACK-HANDLER  (Inline-Button-Presse → Freigaben)
@@ -537,6 +547,7 @@ _COMMANDS = {
     "/social":    cmd_social,
     "/mail":      cmd_mail,
     "/log":       cmd_log,
+    "/review":    cmd_review,
 }
 
 def process_update(update: dict):
