@@ -1,247 +1,213 @@
+"""
+review_monitor.py v2.5
+Direkte Review-Erkennung (Amazon + LovelyBooks)
+"""
+
 import re
+import time
 import requests
 from datetime import datetime
-from ddgs import DDGS
-from urllib.parse import urlparse
 
 import utils_system as utils
 
-MODEL_NAME = "review_monitor_v2"
 
 # -----------------------------
-# KONFIG
-# -----------------------------
-
-MIN_SCORE = 3
-
-NOISE_KEYWORDS = [
-    "song", "lyrics", "musik", "album",
-    "spotify", "dance track", "remix"
-]
-
-# -----------------------------
-# HELPERS
+# LOGGING
 # -----------------------------
 
 def log(msg):
     print(f"[{datetime.now()}] {msg}")
 
-def normalize(text):
-    return (text or "").lower().strip()
 
 # -----------------------------
-# QUERY GENERATION (Tiered)
+# AMAZON HELPERS
 # -----------------------------
 
-def build_queries(book):
-    title = book.get("titel", "")
-    author = book.get("autorin", "")
+def get_amazon_review_url(url):
+    if not url:
+        return None
 
-    base = f'"{title}" "{author}"'
+    match = re.search(r"/dp/([A-Z0-9]+)", url)
+    if not match:
+        return None
 
-    return [
-        # Tier 1 (präzise)
-        f'{base} rezension',
-        f'{base} review',
-        f'{base} buch',
+    asin = match.group(1)
+    return f"https://www.amazon.de/product-reviews/{asin}"
 
-        # Tier 2 (Plattform)
-        f'{base} site:amazon.de',
-        f'{base} site:lovelybooks.de',
-        f'{base} site:goodreads.com',
-
-        # Tier 3 (Social vorsichtig)
-        f'{base} site:instagram.com',
-        f'{base} site:youtube.com',
-
-        # fallback
-        f'"{title}" "{author}"'
-    ]
 
 # -----------------------------
-# MATCHING
-# -----------------------------
-
-def is_noise(text):
-    t = normalize(text)
-    return any(n in t for n in NOISE_KEYWORDS)
-
-def strong_match(link, snippet, book):
-    isbn = normalize(book.get("isbn"))
-    amazon = normalize(book.get("amazon_url"))
-    lovely = normalize(book.get("lovelybooks_url"))
-
-    link_l = normalize(link)
-    snippet_l = normalize(snippet)
-
-    if isbn and isbn in snippet_l:
-        return True
-    if amazon and amazon in link_l:
-        return True
-    if lovely and lovely in link_l:
-        return True
-
-    return False
-
-def soft_match(book, snippet):
-    title = normalize(book.get("titel"))
-    author = normalize(book.get("autorin"))
-    s = normalize(snippet)
-
-    return title in s and author in s
-
-def relevance_score(result, book):
-    score = 0
-    snippet = normalize(result.get("body", ""))
-
-    if normalize(book.get("titel")) in snippet:
-        score += 2
-    if normalize(book.get("autorin")) in snippet:
-        score += 3
-    if "rezension" in snippet or "review" in snippet:
-        score += 2
-    if "buch" in snippet:
-        score += 1
-    if is_noise(snippet):
-        score -= 5
-
-    return score
-
-# -----------------------------
-# AMAZON DIRECT SCRAPE 🔥
+# AMAZON SCRAPER
 # -----------------------------
 
 def fetch_amazon_reviews(book):
-    url = book.get("amazon_url", "")
-    if not url:
+    url = book.get("amazon_link")
+
+    review_url = get_amazon_review_url(url)
+    if not review_url:
+        log("⚠️ Keine gültige Amazon URL")
         return []
 
-    log("→ lade Amazon Rezensionen direkt")
+    log(f"🔍 Amazon Reviews: {review_url}")
+
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
+
+    try:
+        r = requests.get(review_url, headers=headers)
+        html = r.text
+    except Exception as e:
+        log(f"❌ Amazon Fehler: {e}")
+        return []
 
     reviews = []
 
-    try:
-        headers = {
-            "User-Agent": "Mozilla/5.0"
-        }
-        r = requests.get(url, headers=headers)
-        html = r.text
+    review_blocks = re.findall(
+        r'data-hook="review-body".*?>(.*?)</span>',
+        html,
+        re.DOTALL
+    )
 
-        # sehr simple extraction (reicht oft schon!)
-        matches = re.findall(r'(\d\.\d out of 5 stars)', html)
+    ratings = re.findall(
+        r'(\d,\d von 5 Sternen)',
+        html
+    )
 
-        for m in matches[:10]:
-            reviews.append({
-                "source": "Amazon",
-                "rating": m,
-                "text": "Amazon Bewertung gefunden",
-                "link": url
-            })
+    for i, text in enumerate(review_blocks[:10]):
+        clean = re.sub(r"<.*?>", "", text).strip()
 
-    except Exception as e:
-        log(f"Amazon Fehler: {e}")
+        if not clean:
+            continue
+
+        reviews.append({
+            "source": "Amazon",
+            "text": clean,
+            "rating": ratings[i] if i < len(ratings) else "",
+            "link": review_url
+        })
 
     return reviews
 
+
 # -----------------------------
-# DDGS SEARCH
+# LOVELYBOOKS SCRAPER
 # -----------------------------
 
-def search_reviews(book):
-    ddgs = DDGS()
-    queries = build_queries(book)
+def fetch_lovelybooks_reviews(book):
+    url = book.get("lovelybooks_url")
 
-    results = []
-    seen_links = set()
+    if not url:
+        log("⚠️ Keine LovelyBooks URL")
+        return []
 
-    for q in queries:
-        log(f"Query: {q}")
+    log(f"🔍 LovelyBooks: {url}")
 
-        for r in ddgs.text(q, max_results=8):
-            link = r.get("href")
-            snippet = r.get("body", "")
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
 
-            if not link or link in seen_links:
-                continue
+    try:
+        r = requests.get(url, headers=headers)
+        html = r.text
+    except Exception as e:
+        log(f"❌ LovelyBooks Fehler: {e}")
+        return []
 
-            seen_links.add(link)
+    reviews = []
 
-            # HARD MATCH
-            if strong_match(link, snippet, book):
-                results.append(r)
-                continue
+    review_blocks = re.findall(
+        r'<div class="user-content">(.*?)</div>',
+        html,
+        re.DOTALL
+    )
 
-            # NOISE
-            if is_noise(snippet):
-                continue
+    for text in review_blocks[:10]:
+        clean = re.sub(r"<.*?>", "", text).strip()
 
-            # SOFT MATCH
-            if not soft_match(book, snippet):
-                continue
+        if len(clean) < 40:
+            continue
 
-            # SCORE
-            if relevance_score(r, book) < MIN_SCORE:
-                continue
+        reviews.append({
+            "source": "LovelyBooks",
+            "text": clean,
+            "rating": "",
+            "link": url
+        })
 
-            results.append(r)
+    return reviews
 
-    return results
 
 # -----------------------------
 # MAIN PIPELINE
 # -----------------------------
 
-def run_monitor():
-    books = utils.get_sheet_data("Books")
-    book = books[0]  # aktives Buch
+def run():
+    try:
+        log("🚀 Review Monitor gestartet")
 
-    log(f"Starte Monitoring für: {book.get('titel')}")
+        books = utils.get_sheet_data("Books")
 
-    # 1. AMAZON DIREKT
-    amazon_reviews = fetch_amazon_reviews(book)
+        if not books:
+            log("❌ Keine Buchdaten gefunden")
+            return
 
-    # 2. WEB SUCHE
-    web_results = search_reviews(book)
+        book = books[0]
 
-    # 3. MERGE
-    all_results = []
+        log(f"📘 Buch: {book.get('titel')}")
 
-    for r in web_results:
-        all_results.append({
-            "link": r.get("href"),
-            "text": r.get("body"),
-            "source": urlparse(r.get("href")).netloc
-        })
+        all_reviews = []
 
-    for a in amazon_reviews:
-        all_results.append(a)
+        # ---------------------
+        # AMAZON
+        # ---------------------
+        amazon_reviews = fetch_amazon_reviews(book)
+        log(f"✅ Amazon Reviews gefunden: {len(amazon_reviews)}")
+        all_reviews.extend(amazon_reviews)
 
-    # 4. DEDUP
-    unique = []
-    seen = set()
+        time.sleep(2)  # wichtig gegen Block
 
-    for r in all_results:
-        key = r.get("link", "")
-        if key in seen:
-            continue
-        seen.add(key)
-        unique.append(r)
+        # ---------------------
+        # LOVELYBOOKS
+        # ---------------------
+        lovely_reviews = fetch_lovelybooks_reviews(book)
+        log(f"✅ LovelyBooks Reviews gefunden: {len(lovely_reviews)}")
+        all_reviews.extend(lovely_reviews)
 
-    # 5. SAVE
-    rows = []
+        # ---------------------
+        # SPEICHERN
+        # ---------------------
+        if not all_reviews:
+            log("⚠️ Keine Reviews gefunden")
+            return
 
-    for i, r in enumerate(unique):
-        rows.append([
-            str(i+1),
-            datetime.now().strftime("%Y-%m-%d"),
-            r.get("source"),
-            "Rezension",
-            r.get("link"),
-            r.get("text"),
-            "",
-            "Neu"
-        ])
+        rows = []
 
-    utils.write_to_sheet("Rezension", rows)
+        for i, r in enumerate(all_reviews):
+            rows.append([
+                str(i + 1),
+                datetime.now().strftime("%Y-%m-%d"),
+                r.get("source"),
+                "Rezension",
+                r.get("link"),
+                r.get("text"),
+                r.get("rating", ""),
+                "Neu"
+            ])
 
-    log(f"✅ {len(rows)} relevante Treffer gespeichert")
+        utils.write_to_sheet("Rezension", rows)
+
+        log(f"✅ {len(rows)} Reviews gespeichert")
+
+    except Exception as e:
+        log("🔥 KRITISCHER FEHLER")
+        log(str(e))
+        import traceback
+        traceback.print_exc()
+
+
+# -----------------------------
+# START
+# -----------------------------
+
+if __name__ == "__main__":
+    run()
