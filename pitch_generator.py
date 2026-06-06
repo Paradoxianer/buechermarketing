@@ -16,7 +16,6 @@ Starten:
 ═══════════════════════════════════════════════════════════════
 """
 
-import json
 import re
 from datetime import datetime
 
@@ -225,7 +224,7 @@ def select_contacts_for_pitching():
 
 
 # ─────────────────────────────────────────────────────────────
-# PROMPTING
+# PROMPTING / PARSING
 # ─────────────────────────────────────────────────────────────
 
 def build_style_rules(outreach_style: str, ansprechpartner: str):
@@ -266,6 +265,32 @@ def build_style_rules(outreach_style: str, ansprechpartner: str):
     return anrede, rules
 
 
+def parse_pitch_output(raw: str):
+    text = raw.strip()
+
+    match = re.search(r'BETREFF\s*:\s*(.+?)\n+TEXT\s*:\s*(.+)', text, re.IGNORECASE | re.DOTALL)
+    if match:
+        betreff = match.group(1).strip()
+        pitch_text = match.group(2).strip()
+        if betreff and pitch_text:
+            return betreff, pitch_text
+
+    lines = [line.rstrip() for line in text.splitlines() if line.strip()]
+    if len(lines) >= 2:
+        first = lines[0]
+        rest = "\n".join(lines[1:]).strip()
+
+        if first.lower().startswith("betreff:"):
+            betreff = first.split(":", 1)[1].strip()
+            if betreff and rest:
+                return betreff, rest
+
+        if len(first) <= 140 and rest:
+            return first, rest
+
+    raise ValueError("LLM-Antwort konnte nicht als Betreff/Text geparst werden")
+
+
 def generate_pitch(llm, kontakt: dict, buch: dict):
     anrede, style_rules = build_style_rules(kontakt["outreach_style"], kontakt["ansprechpartner"])
     rules_text = "\n".join([f"- {r}" for r in style_rules])
@@ -304,27 +329,21 @@ AUFGABE:
 - Erkläre, warum gerade dieser Kontakt gut passen könnte.
 - Biete ein Rezensionsexemplar oder weitere Informationen an.
 - Verwende keine übertriebenen Werbeformulierungen.
+- Keine Signatur ergänzen.
 
-ANTWORTE AUSSCHLIESSLICH ALS JSON:
-{{
-  "betreff": "Betreff der E-Mail",
-  "pitch_text": "kompletter E-Mail-Text ohne Signatur"
-}}
+ANTWORTFORMAT:
+BETREFF: <eine einzige Betreffzeile>
+TEXT:
+<kompletter E-Mail-Text ohne Signatur>
+
+WICHTIG:
+- Kein JSON.
+- Kein zusätzlicher Kommentar.
+- Genau dieses Format verwenden.
 """.strip()
 
     raw = llm.invoke(prompt).strip()
-    match = re.search(r'\{.*\}', raw, re.DOTALL)
-    if not match:
-        raise ValueError("Kein JSON in LLM-Antwort")
-
-    data = json.loads(match.group(0))
-    betreff = str(data.get("betreff", "")).strip()
-    pitch_text = str(data.get("pitch_text", "")).strip()
-
-    if not betreff or not pitch_text:
-        raise ValueError("LLM-Antwort enthält keinen Betreff oder Pitch-Text")
-
-    return betreff, pitch_text
+    return parse_pitch_output(raw)
 
 
 # ─────────────────────────────────────────────────────────────
