@@ -7,15 +7,12 @@ schreibt sie in den Tab 'Social_Media_Queue'.
 Ziel:
 - 3 starke Vorschläge pro Lauf erzeugen
 - 1 trendnaher Vorschlag, 2 normale Vorschläge
-- Rezensionen, Trends und Social-History berücksichtigen
+- Rezensionen, Trends, Social-History und Buchbeschreibung berücksichtigen
 - Inhalte zuerst zur Freigabe in die Queue schreiben
+- robuste JSON-Reparatur bei LLM-Ausgaben
 
 Zielspalten in 'Social_Media_Queue':
 ID | Erstellt_Am | Plattform | Format | Post_Text | Bild_URLs | Hashtags | Status | Freigabe_Am | Geplant_Fuer | Gepostet_Am | Post_ID_Extern
-
-Starten:
-    python social_media_agent.py
-═══════════════════════════════════════════════════════════════
 """
 
 import json
@@ -29,13 +26,14 @@ import utils_system as utils
 LOG_TAB = "Logbuch"
 CONFIG_TAB = "Konfiguration"
 GENERAL_TAB = "Allgemeines"
+BOOKS_TAB = "Books"
 REVIEWS_TAB = "Rezension"
 TRENDS_TAB = "Social_Trends"
 QUEUE_TAB = "Social_Media_Queue"
 HISTORY_TAB = "Social_History"
 
 DEFAULT_MODEL = "qwen3:8b"
-DEFAULT_TEMP = 0.7
+DEFAULT_TEMP = 0.65
 DEFAULT_PLATFORM = "Instagram"
 DEFAULT_STATUS = "Freigabe_ausstehend"
 PLACEHOLDER_IMAGE = ""
@@ -84,6 +82,41 @@ def build_llm():
     return OllamaLLM(model=model, temperature=temperature)
 
 
+def pick_value(row, candidates):
+    for key in candidates:
+        value = row.get(key)
+        if value not in (None, ""):
+            return str(value).strip()
+    return ""
+
+
+def get_book_context():
+    titel = get_general_value("buchtitel", get_general_value("book_name", "Unbekannt"))
+    autorin = get_general_value("autorin_name", "Unbekannt")
+    genre = get_general_value("genre", "Jugendbuch")
+    zielsetzung = get_general_value("zielsetzung", "Bekanntheit steigern")
+    website_url = get_general_value("website_url", "")
+
+    beschreibung = ""
+    books = get_rows(BOOKS_TAB)
+    ziel_titel = titel.strip().lower()
+    for row in books:
+        row_titel = pick_value(row, ["titel", "Titel", "Buchtitel", "buchtitel"]).lower()
+        if ziel_titel and row_titel == ziel_titel:
+            beschreibung = pick_value(row, ["beschreibung", "Beschreibung", "Klappentext", "Kurzbeschreibung"])
+            if beschreibung:
+                break
+
+    return {
+        "autorin": autorin,
+        "buchtitel": titel,
+        "genre": genre,
+        "zielsetzung": zielsetzung,
+        "website_url": website_url,
+        "beschreibung": beschreibung,
+    }
+
+
 def get_recent_reviews(limit: int = 8):
     rows = get_rows(REVIEWS_TAB)
     items = []
@@ -91,10 +124,13 @@ def get_recent_reviews(limit: int = 8):
         status = str(row.get("Status", "")).strip().lower()
         if status not in ("neu gefunden", "geprüft", "veröffentlicht", "für social verwenden"):
             continue
+        zitat = str(row.get("Zitat", "")).strip()
+        if len(zitat) < 20:
+            continue
         items.append({
             "medium": str(row.get("Medium/Name", "")).strip(),
             "typ": str(row.get("Typ", "")).strip(),
-            "zitat": str(row.get("Zitat", "")).strip(),
+            "zitat": zitat,
             "score": str(row.get("AI Score", "")).strip(),
             "begruendung": str(row.get("AI Begründung", "")).strip(),
         })
@@ -165,12 +201,7 @@ def select_planning_inputs():
 
 
 def build_prompt():
-    autorin = get_general_value("autorin_name", "Unbekannt")
-    buchtitel = get_general_value("buchtitel", get_general_value("book_name", "Unbekannt"))
-    genre = get_general_value("genre", "Jugendbuch")
-    zielsetzung = get_general_value("zielsetzung", "Bekanntheit steigern")
-    website_url = get_general_value("website_url", "")
-
+    book = get_book_context()
     reviews = get_recent_reviews()
     trends = get_recent_trends()
     history = get_recent_social_history()
@@ -184,11 +215,12 @@ AUFGABE:
 Erzeuge GENAU 3 veröffentlichungsreife Social-Media-Post-Entwürfe für die aktuelle Kampagne.
 
 KAMPAGNENKONTEXT:
-- Autorin: {autorin}
-- Titel: {buchtitel}
-- Genre: {genre}
-- Zielsetzung: {zielsetzung}
-- Website: {website_url}
+- Autorin: {book['autorin']}
+- Titel: {book['buchtitel']}
+- Genre: {book['genre']}
+- Zielsetzung: {book['zielsetzung']}
+- Website: {book['website_url']}
+- Buchbeschreibung: {book['beschreibung']}
 
 REZENSIONEN / ERWÄHNUNGEN:
 {json.dumps(reviews, ensure_ascii=False, indent=2)}
@@ -207,16 +239,18 @@ AUSGEWÄHLTE PLANUNGSIDEEN:
 
 WICHTIGE REGELN:
 - Erzeuge genau 3 Posts.
+- Plattform standardmäßig Instagram.
 - Mindestens 1 Post soll trendnah sein, wenn Trends vorhanden sind.
 - Mindestens 2 Posts sollen evergreen / normal sein.
 - Die 3 Posts sollen sich klar unterscheiden.
 - Schreibe emotional, hochwertig, social-tauglich und nicht platt werblich.
-- Die Texte sollen zu Instagram/Facebook passen.
-- Du darfst intensiv nachdenken; Qualität ist wichtiger als Geschwindigkeit.
+- Schreibe konkret und buchnah auf Basis der Buchbeschreibung.
+- Vermeide generische Sätze wie 'Das Lesen verändert uns' oder 'Entdecke dieses Buch'.
 - Nutze Rezensionen sinnvoll, aber erfinde keine falschen Zitate.
 - Verwende nur Informationen, die zum Buch und zur Kampagne passen.
 - Liefere fertige Captions mit Hashtags.
 - Nenne zusätzlich kurz die Bildidee.
+- Achte streng auf gültiges JSON. Escape doppelte Anführungszeichen innerhalb von Strings korrekt.
 
 ANTWORTFORMAT: NUR JSON
 {{
@@ -241,19 +275,56 @@ WICHTIG:
 """.strip()
 
 
+def repair_json_with_llm(raw_text: str):
+    llm = build_llm()
+    repair_prompt = f"""
+Du reparierst fehlerhaftes JSON.
+
+AUFGABE:
+Wandle den folgenden Text in gültiges JSON um.
+- Behalte die vorhandene Struktur so gut wie möglich bei.
+- Gib NUR gültiges JSON zurück.
+- Kein Markdown.
+- Kein Zusatztext.
+
+TEXT:
+{raw_text}
+""".strip()
+    repaired = llm.invoke(repair_prompt).strip()
+    return repaired
+
+
 def parse_llm_json(raw_text: str):
     raw_text = raw_text.strip()
-    try:
-        data = json.loads(raw_text)
-        if isinstance(data, dict):
-            return data
-    except:
-        pass
+
+    candidates = [raw_text]
 
     match = re.search(r'\{.*\}', raw_text, re.DOTALL)
-    if not match:
-        raise ValueError("Kein JSON-Block in der LLM-Antwort gefunden.")
-    return json.loads(match.group(0))
+    if match:
+        candidates.append(match.group(0))
+
+    for candidate in candidates:
+        try:
+            data = json.loads(candidate)
+            if isinstance(data, dict):
+                return data
+        except:
+            pass
+
+    sanitized = raw_text.replace('“', '"').replace('”', '"').replace("’", "'")
+    match = re.search(r'\{.*\}', sanitized, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group(0))
+        except:
+            pass
+
+    repaired = repair_json_with_llm(raw_text)
+    repaired_match = re.search(r'\{.*\}', repaired, re.DOTALL)
+    if repaired_match:
+        return json.loads(repaired_match.group(0))
+
+    raise ValueError("Kein gültiges JSON aus der LLM-Antwort extrahierbar.")
 
 
 def normalize_posts(data: dict):
@@ -268,7 +339,7 @@ def normalize_posts(data: dict):
         if not isinstance(item, dict):
             continue
 
-        plattform = str(item.get("plattform", DEFAULT_PLATFORM)).strip() or DEFAULT_PLATFORM
+        plattform = DEFAULT_PLATFORM
         format_name = str(item.get("format", "Feed")).strip() or "Feed"
         post_text = str(item.get("post_text", "")).strip()
         bild_urls = str(item.get("bild_urls", PLACEHOLDER_IMAGE)).strip()
@@ -280,7 +351,7 @@ def normalize_posts(data: dict):
         if not post_text:
             continue
 
-        dedupe_key = (plattform.lower(), format_name.lower(), post_text[:120].lower())
+        dedupe_key = (format_name.lower(), post_text[:120].lower())
         if dedupe_key in seen:
             continue
         seen.add(dedupe_key)
@@ -361,7 +432,7 @@ def send_summary_to_telegram(posts):
     ]
 
     for idx, post in enumerate(posts, start=1):
-        lines.append(f"<b>{idx}. {post['plattform']} / {post['format']}</b>")
+        lines.append(f"<b>{idx}. {post['format']}</b>")
         lines.append(f"📝 {post['post_text'][:180]}")
         if post.get("hashtags"):
             lines.append(f"🏷️ {post['hashtags'][:120]}")
