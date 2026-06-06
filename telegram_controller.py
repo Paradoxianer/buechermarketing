@@ -13,6 +13,7 @@ Befehle (per Telegram):
   /plan [Fokus]         — Neue Recherche-Aufgaben planen
   /recherche [Nische]   — Neue Zielgruppen-Recherche starten
   /pitches              — Pitch-Anschreiben generieren (mit Freigabe)
+  /send                 — Freigegebene Pitches per SMTP versenden (mit Freigabe)
   /website              — Website bauen & deployen (mit Freigabe)
   /social               — Social-Media-Posts vorbereiten (mit Freigabe)
   /mail                 — Posteingang per IMAP prüfen
@@ -35,7 +36,7 @@ import utils_system as utils
 # KONFIGURATION
 # ─────────────────────────────────────────────────────────────
 
-VERSION            = "1.1.0"
+VERSION            = "1.2.0"
 OFFSET_FILE        = ".tg_offset"  # Lokale Datei — kein Sheet-API-Verbrauch
 SCHED_INTERVAL_SEC = 60            # Sekunden zwischen Scheduler-Checks
 TG_TIMEOUT         = 30            # Telegram Long-Poll Timeout in Sekunden
@@ -55,6 +56,7 @@ WEEKLY_SCRIPTS = [
 SCRIPTS = {
     "recherche": "pitch_preparer.py",
     "pitches":   "pitch_generator.py",
+    "send":      "pitch_sender.py",
     "website":   "generate_website.py",
     "social":    "social_media_agent.py",
     "mail":      "mail_checker.py",
@@ -213,7 +215,7 @@ def run_script(script_name: str, args: list = None, background: bool = False) ->
         return False
 
 
-# ──────────────────────────────��──────────────────────────────
+# ─────────────────────────────────────────────────────────────
 # KOMMANDO-HANDLER
 # ─────────────────────────────────────────────────────────────
 
@@ -236,6 +238,7 @@ def cmd_hilfe(_args):
         "    z.B.: /recherche Jugendbuch Influencer\n\n"
         "✍️ <b>Pitches &amp; E-Mail</b>\n"
         "  /pitches           — Anschreiben generieren\n"
+        "  /send              — Freigegebene Pitches versenden\n"
         "  /mail              — Posteingang prüfen\n\n"
         "🌐 <b>Website</b>\n"
         "  /website           — Website bauen &amp; deployen\n\n"
@@ -334,7 +337,6 @@ def cmd_recherche(args):
         )
         return
 
-    # Neue Aufgabe in Google Sheets eintragen (single point of truth)
     try:
         task_id = f"task_{datetime.now().strftime('%d%H%M%S')}"
         today   = datetime.now().strftime("%Y-%m-%d")
@@ -381,6 +383,32 @@ def cmd_pitches(_args):
         [
             {"text": "✅ Ja, Pitches generieren!", "data": "run_pitches"},
             {"text": "❌ Abbrechen",               "data": "cancel"}
+        ]
+    )
+
+
+def cmd_send(_args):
+    hinweis = ""
+    try:
+        tracking = utils.get_sheet_data("Kampagnen_Tracking")
+        bereit = [r for r in tracking if str(r.get("Status", "")).strip() == "Freigegeben"]
+        if bereit:
+            hinweis = f"\n\n<b>{len(bereit)} Entwürfe</b> sind freigegeben und versandbereit."
+        else:
+            hinweis = (
+                "\n\n⚠️ Aktuell keine Einträge mit Status <b>Freigegeben</b> in <b>Kampagnen_Tracking</b>."
+            )
+    except:
+        pass
+
+    send_keyboard(
+        f"📤 <b>Freigegebene Pitches versenden</b>{hinweis}\n\n"
+        f"Es werden nur Entwürfe mit Status <b>Freigegeben</b> per SMTP versendet.\n"
+        f"Nach erfolgreichem Versand wird der Status auf <b>Gesendet</b> gesetzt.\n\n"
+        f"Jetzt starten?",
+        [
+            {"text": "📤 Ja, jetzt senden!", "data": "run_send"},
+            {"text": "❌ Abbrechen",         "data": "cancel"}
         ]
     )
 
@@ -450,6 +478,7 @@ def cmd_log(args):
 # callback_data → (script_datei, Status-Text für bearbeitete Nachricht)
 _CALLBACKS = {
     "run_pitches": ("pitch_generator.py",   "✍️ Pitch-Generator läuft..."),
+    "run_send":    ("pitch_sender.py",      "📤 Pitch-Versand läuft..."),
     "run_website": ("generate_website.py",  "🌐 Website-Build gestartet..."),
     "run_social":  ("social_media_agent.py","📱 Social-Media-Agent läuft..."),
 }
@@ -503,6 +532,7 @@ _COMMANDS = {
     "/plan":      cmd_plan,
     "/recherche": cmd_recherche,
     "/pitches":   cmd_pitches,
+    "/send":      cmd_send,
     "/website":   cmd_website,
     "/social":    cmd_social,
     "/mail":      cmd_mail,
