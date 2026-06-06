@@ -5,10 +5,11 @@ Plant die nächsten sinnvollen Social-Media-Post-Ideen für die Kampagne
 und schreibt strategische Vorschläge in den Tab 'Social_History'.
 
 Ziel:
-- bestehende Rezensionen, Trends und Queue berücksichtigen
+- bestehende Rezensionen, Trends, Queue und Buchbeschreibung berücksichtigen
 - Wiederholungen vermeiden
 - Content-Mix ausbalancieren
 - 5 verwertbare Social-Ideen für den Agenten vorbereiten
+- Instagram-first denken; Facebook meist mitnutzbar, nicht separat erzwingen
 
 Starten:
     python social_planner.py
@@ -28,14 +29,16 @@ import utils_system as utils
 LOG_TAB = "Logbuch"
 CONFIG_TAB = "Konfiguration"
 GENERAL_TAB = "Allgemeines"
+BOOKS_TAB = "Books"
 REVIEWS_TAB = "Rezension"
 TRENDS_TAB = "Social_Trends"
 QUEUE_TAB = "Social_Media_Queue"
 HISTORY_TAB = "Social_History"
 
 DEFAULT_MODEL = "qwen3:8b"
-DEFAULT_TEMP = 0.4
+DEFAULT_TEMP = 0.35
 LAST_PLAN_KEY = "letzter_social_plan_run"
+DEFAULT_PLATFORM = "Instagram"
 
 
 def log(level: str, message: str):
@@ -94,16 +97,54 @@ def build_llm():
     return OllamaLLM(model=model, temperature=temperature)
 
 
+def pick_value(row, candidates):
+    for key in candidates:
+        value = row.get(key)
+        if value not in (None, ""):
+            return str(value).strip()
+    return ""
+
+
+def get_book_context():
+    titel = get_general_value("buchtitel", get_general_value("book_name", "Unbekannt"))
+    autorin = get_general_value("autorin_name", "Unbekannt")
+    genre = get_general_value("genre", "Jugendbuch")
+    zielsetzung = get_general_value("zielsetzung", "Bekanntheit steigern")
+    website_url = get_general_value("website_url", "")
+
+    beschreibung = ""
+    books = get_rows(BOOKS_TAB)
+    ziel_titel = titel.strip().lower()
+    for row in books:
+        row_titel = pick_value(row, ["titel", "Titel", "Buchtitel", "buchtitel"]).lower()
+        if ziel_titel and row_titel == ziel_titel:
+            beschreibung = pick_value(row, ["beschreibung", "Beschreibung", "Klappentext", "Kurzbeschreibung"])
+            if beschreibung:
+                break
+
+    return {
+        "autorin": autorin,
+        "buchtitel": titel,
+        "genre": genre,
+        "zielsetzung": zielsetzung,
+        "website_url": website_url,
+        "beschreibung": beschreibung,
+    }
+
+
 def summarize_reviews(limit: int = 12):
     rows = get_rows(REVIEWS_TAB)
     filtered = []
     for row in rows:
         status = str(row.get("Status", "")).strip().lower()
         if status in ("neu gefunden", "geprüft", "veröffentlicht", "für social verwenden"):
+            zitat = str(row.get("Zitat", "")).strip()
+            if len(zitat) < 20:
+                continue
             filtered.append({
                 "medium": str(row.get("Medium/Name", "")).strip(),
                 "typ": str(row.get("Typ", "")).strip(),
-                "zitat": str(row.get("Zitat", "")).strip(),
+                "zitat": zitat,
                 "score": str(row.get("AI Score", "")).strip(),
                 "begruendung": str(row.get("AI Begründung", "")).strip(),
             })
@@ -155,17 +196,11 @@ def summarize_history(limit: int = 20):
 
 
 def build_prompt(fokus: str = ""):
-    autorin = get_general_value("autorin_name", "Unbekannt")
-    buchtitel = get_general_value("buchtitel", get_general_value("book_name", "Unbekannt"))
-    genre = get_general_value("genre", "Jugendbuch")
-    zielsetzung = get_general_value("zielsetzung", "Bekanntheit steigern")
-    website_url = get_general_value("website_url", "")
-
+    book = get_book_context()
     reviews = summarize_reviews()
     trends = summarize_trends()
     queue = summarize_queue()
     history = summarize_history()
-
     fokus_text = fokus.strip() if fokus else "kein spezieller Fokus"
 
     return f"""
@@ -175,11 +210,12 @@ AUFGABE:
 Plane die NÄCHSTEN 5 sinnvollen Social-Media-Post-Ideen für die aktuelle Buchkampagne.
 
 KAMPAGNENKONTEXT:
-- Autorin: {autorin}
-- Titel: {buchtitel}
-- Genre: {genre}
-- Zielsetzung: {zielsetzung}
-- Website: {website_url}
+- Autorin: {book['autorin']}
+- Titel: {book['buchtitel']}
+- Genre: {book['genre']}
+- Zielsetzung: {book['zielsetzung']}
+- Website: {book['website_url']}
+- Buchbeschreibung: {book['beschreibung']}
 - Nutzer-Fokus: {fokus_text}
 
 AKTUELLE REZENSIONEN / ERWÄHNUNGEN:
@@ -195,14 +231,16 @@ BISHERIGE SOCIAL-HISTORY:
 {json.dumps(history, ensure_ascii=False, indent=2)}
 
 WICHTIGE REGELN:
-- Plane abwechslungsreich.
-- Vermeide Wiederholungen zu Formaten, Hooks und Themen.
+- Denke Instagram-first. Facebook ist mitnutzbar, muss aber nicht separat geplant werden.
+- Plane abwechslungsreich, aber BUCHNAH.
+- Vermeide generische Hooks wie 'Die Macht des Lesens', 'Das Lesen verändert uns', 'Entdecken Sie das Buch'.
+- Beziehe dich konkret auf Figuren, Konflikte, Gefühle, Fragen oder Spannungen aus der Buchbeschreibung.
 - Mindestens 1 Idee soll trendnah sein, wenn Trends vorhanden sind.
 - Mindestens 1 Idee soll eine Rezension / Erwähnung sinnvoll nutzen, wenn Rezensionen vorhanden sind.
 - Denke in echten Formaten: Feed, Story, Carousel, Reel-Skript, Zitatkarte, Community-Frage.
 - Schreibe NICHT die finalen Posts, sondern strategische Ideen.
 - Wenn Nutzer-Fokus angegeben ist, soll mindestens 1 Idee direkt dazu passen.
-- Die Ideen sollen gut zu Instagram/Facebook/Pinterest passen.
+- Die Ideen sollen emotional, konkret, modern und social-tauglich sein.
 - Nutze das LLM gründlich und strategisch. Qualität ist wichtiger als Geschwindigkeit.
 
 ANTWORTFORMAT: NUR JSON
@@ -212,10 +250,10 @@ ANTWORTFORMAT: NUR JSON
       "plattform": "Instagram",
       "format": "Carousel",
       "typ": "Rezensionszitat",
-      "hook": "Was Leserinnen an 'What is Love?' berührt",
-      "kernidee": "Mehrere starke Zitate oder Gedanken aus Rezensionen als Carousel aufbereiten.",
+      "hook": "Wenn Liebe weh tut, bevor sie schön wird",
+      "kernidee": "Mehrere Slides zeigen emotionale Spannungen oder Fragen aus dem Buch und verbinden sie mit einer echten Leserreaktion.",
       "quelle": "Rezension",
-      "trendbezug": "Kein direkter Trend, aber starker Social Proof",
+      "trendbezug": "Kein direkter Trend",
       "begruendung": "Warum diese Idee aktuell sinnvoll ist"
     }}
   ]
@@ -223,6 +261,8 @@ ANTWORTFORMAT: NUR JSON
 
 WICHTIG:
 - Gib GENAU 5 Ideen zurück.
+- Plattform standardmäßig Instagram.
+- Keine generischen Allgemeinplätze.
 - Kein Markdown.
 - Kein zusätzlicher Text.
 """.strip()
@@ -254,7 +294,7 @@ def normalize_ideas(data: dict):
         if not isinstance(item, dict):
             continue
 
-        plattform = str(item.get("plattform", "Instagram")).strip() or "Instagram"
+        plattform = DEFAULT_PLATFORM
         format_name = str(item.get("format", "Feed")).strip() or "Feed"
         typ = str(item.get("typ", "Allgemein")).strip() or "Allgemein"
         hook = str(item.get("hook", "")).strip()
@@ -266,7 +306,7 @@ def normalize_ideas(data: dict):
         if not hook or not kernidee:
             continue
 
-        key = (plattform.lower(), format_name.lower(), hook.lower())
+        key = (format_name.lower(), hook.lower())
         if key in seen:
             continue
         seen.add(key)
@@ -311,16 +351,12 @@ def write_history_entries(ideas):
 
 
 def send_summary_to_telegram(ideas, fokus: str = ""):
-    lines = [
-        "📱 <b>Neue Social-Planung erstellt</b>",
-        "",
-    ]
-
+    lines = ["📱 <b>Neue Social-Planung erstellt</b>", ""]
     if fokus:
         lines.extend([f"<b>Fokus:</b> {fokus}", ""])
 
     for idx, item in enumerate(ideas, start=1):
-        lines.append(f"<b>{idx}. {item['plattform']} / {item['format']}</b>")
+        lines.append(f"<b>{idx}. {item['format']}</b>")
         lines.append(f"🪝 {item['hook']}")
         lines.append(f"💡 {item['kernidee']}")
         if item.get("trendbezug"):
