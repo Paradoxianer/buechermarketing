@@ -54,7 +54,7 @@ def get_general_value(key: str, default=""):
     try:
         value = utils.get_value_by_key(GENERAL_TAB, key)
         return value if value not in (None, "") else default
-    except:
+    except Exception:
         return default
 
 
@@ -62,7 +62,7 @@ def get_config_value(key: str, default=""):
     try:
         value = utils.get_value_by_key(CONFIG_TAB, key)
         return value if value not in (None, "") else default
-    except:
+    except Exception:
         return default
 
 
@@ -92,7 +92,7 @@ def build_llm():
     temp_raw = get_config_value("social_ollama_temperature", str(DEFAULT_TEMP))
     try:
         temperature = float(temp_raw)
-    except:
+    except Exception:
         temperature = DEFAULT_TEMP
     return OllamaLLM(model=model, temperature=temperature)
 
@@ -262,25 +262,57 @@ ANTWORTFORMAT: NUR JSON
 WICHTIG:
 - Gib GENAU 5 Ideen zurück.
 - Plattform standardmäßig Instagram.
-- Keine generischen Allgemeinplätze.
+- Alle Strings müssen gültige JSON-Strings mit doppelten Anführungszeichen sein.
+- Keine ungeescapten Anführungszeichen innerhalb von String-Werten.
 - Kein Markdown.
 - Kein zusätzlicher Text.
 """.strip()
 
 
-def parse_llm_json(raw_text: str):
-    raw_text = raw_text.strip()
+def try_parse_json_candidate(text: str):
     try:
-        data = json.loads(raw_text)
+        data = json.loads(text)
         if isinstance(data, dict):
             return data
-    except:
-        pass
+    except Exception:
+        return None
+    return None
+
+
+def sanitize_json_text(text: str):
+    text = text.strip()
+    text = re.sub(r"```(?:json)?", "", text, flags=re.IGNORECASE).strip()
+    text = text.replace("„", '"').replace("“", '"').replace("”", '"')
+    text = text.replace("‚", "'").replace("‘", "'")
+    return text
+
+
+def parse_llm_json(raw_text: str):
+    raw_text = sanitize_json_text(raw_text)
+
+    direct = try_parse_json_candidate(raw_text)
+    if direct:
+        return direct
+
+    decoder = json.JSONDecoder()
+    for start_idx, char in enumerate(raw_text):
+        if char != "{":
+            continue
+        try:
+            obj, _ = decoder.raw_decode(raw_text[start_idx:])
+            if isinstance(obj, dict):
+                return obj
+        except Exception:
+            continue
 
     match = re.search(r'\{.*\}', raw_text, re.DOTALL)
-    if not match:
-        raise ValueError("Kein JSON-Block in der LLM-Antwort gefunden.")
-    return json.loads(match.group(0))
+    if match:
+        candidate = match.group(0)
+        parsed = try_parse_json_candidate(candidate)
+        if parsed:
+            return parsed
+
+    raise ValueError("Kein gültiges JSON aus der LLM-Antwort extrahierbar.")
 
 
 def normalize_ideas(data: dict):
@@ -393,7 +425,7 @@ def main():
         log("FEHLER", f"Social-Planungsfehler: {e}")
         try:
             utils.send_telegram(f"❌ <b>Social Planner Fehler</b>\n<code>{str(e)}</code>", parse_mode="HTML")
-        except:
+        except Exception:
             pass
         raise
 
