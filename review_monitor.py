@@ -50,7 +50,7 @@ def log(level, message):
     print(f"[{ts}] [{level}] {message}", flush=True)
     try:
         utils.write_to_sheet(LOG_TAB, [[ts, "review_monitor.py", level, message]])
-    except:
+    except Exception:
         pass
 
 
@@ -73,7 +73,7 @@ def get_config_value(key, default=""):
     try:
         value = utils.get_value_by_key(CONFIG_TAB, key)
         return value if value not in (None, "") else default
-    except:
+    except Exception:
         return default
 
 
@@ -110,7 +110,7 @@ def get_general_value(key, default=""):
     try:
         value = utils.get_value_by_key(GENERAL_TAB, key)
         return value if value not in (None, "") else default
-    except:
+    except Exception:
         return default
 
 
@@ -299,7 +299,7 @@ FORMAT:
         score = int(data.get("score", 0))
         score = max(0, min(100, score))
         return {"score": score, "reason": str(data.get("reason", "")).strip()}
-    except:
+    except Exception:
         return {"score": 0, "reason": "parse_error"}
 
 
@@ -469,7 +469,7 @@ def enrich_result_text(link, fallback_text):
         paragraphs = " ".join(clean_text(p.get_text(" ", strip=True), 300) for p in soup.find_all("p")[:5])
         merged = clean_text(" ".join([title, fallback_text or "", paragraphs]), 2000)
         return merged or clean_text(fallback_text, 1200)
-    except:
+    except Exception:
         return clean_text(fallback_text, 1200)
 
 
@@ -533,8 +533,11 @@ def summary(book, reviews):
     msg += f"Treffer: {len(reviews)}\n\n"
 
     for r in reviews[:5]:
-        msg += f"• {r['source']} / {r.get('type', '')} ({r.get('score', '')})\n"
-        msg += f"{html_escape(r['text'][:100])}...\n\n"
+        msg += f"• {html_escape(r['source'])} / {html_escape(r.get('type', ''))} ({r.get('score', '')})\n"
+        msg += f"{html_escape(r['text'][:100])}...\n"
+        if r.get("link"):
+            msg += f"<a href=\"{html_escape(r['link'])}\">Zum Treffer</a>\n"
+        msg += "\n"
     return msg
 
 
@@ -544,6 +547,7 @@ def html_escape(text):
         .replace("&", "&amp;")
         .replace("<", "&lt;")
         .replace(">", "&gt;")
+        .replace('"', "&quot;")
     )
 
 
