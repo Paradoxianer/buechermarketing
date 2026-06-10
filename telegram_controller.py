@@ -14,7 +14,7 @@ Befehle (per Telegram):
   /recherche [Nische]   — Neue Zielgruppen-Recherche starten
   /pitches              — Pitch-Anschreiben generieren (mit Freigabe)
   /send                 — Freigegebene Pitches per SMTP versenden (mit Freigabe)
-  /website              — Website bauen & deployen (mit Freigabe)
+  /website              — Website bauen, Vorschau senden, Upload nach Freigabe
   /social               — komplette Social-Pipeline starten (Planung → Posts → Assets)
   /mail                 — Posteingang per IMAP prüfen
   /review               — Neue Rezensionen suchen & reporten
@@ -34,10 +34,10 @@ from datetime import datetime, timedelta
 import requests
 import utils_system as utils
 
-VERSION            = "1.3.0"
-OFFSET_FILE        = ".tg_offset"
+VERSION = "1.4.0"
+OFFSET_FILE = ".tg_offset"
 SCHED_INTERVAL_SEC = 60
-TG_TIMEOUT         = 30
+TG_TIMEOUT = 30
 DEFAULT_RUN_TIMEOUT = 300
 LONG_RUN_TIMEOUT = 1800
 
@@ -52,13 +52,13 @@ WEEKLY_SCRIPTS = [
 
 SCRIPTS = {
     "recherche": "pitch_preparer.py",
-    "pitches":   "pitch_generator.py",
-    "send":      "pitch_sender.py",
-    "website":   "generate_website.py",
-    "social":    "social_media_agent.py",
-    "mail":      "mail_checker.py",
-    "review":    "review_monitor.py",
-    "plan":      "planner.py",
+    "pitches": "pitch_generator.py",
+    "send": "pitch_sender.py",
+    "website": "generate_website.py",
+    "social": "social_media_agent.py",
+    "mail": "mail_checker.py",
+    "review": "review_monitor.py",
+    "plan": "planner.py",
 }
 
 _ICONS = {"INFO": "ℹ️", "OK": "✅", "WARNUNG": "⚠️", "FEHLER": "❌"}
@@ -77,15 +77,15 @@ def get_config(key: str, default=None):
     try:
         val = utils.get_value_by_key("Konfiguration", key)
         return val if val not in (None, "") else default
-    except:
+    except Exception:
         return default
 
 
 def set_config(key: str, value: str):
     try:
         client = utils.get_google_client()
-        sheet  = client.open_by_key(utils.SPREADSHEET_ID).worksheet("Konfiguration")
-        cell   = sheet.find(key, in_column=1)
+        sheet = client.open_by_key(utils.SPREADSHEET_ID).worksheet("Konfiguration")
+        cell = sheet.find(key, in_column=1)
         if cell:
             sheet.update_cell(cell.row, 2, str(value))
         else:
@@ -98,7 +98,7 @@ def load_offset() -> int:
     try:
         with open(OFFSET_FILE, "r") as f:
             return int(f.read().strip())
-    except:
+    except Exception:
         return 0
 
 
@@ -129,8 +129,8 @@ def send(text: str, parse_mode: str = "HTML"):
 
 def send_keyboard(text: str, buttons: list):
     result = tg_api("sendMessage", {
-        "chat_id":    utils.TELEGRAM_CHAT_ID,
-        "text":       text,
+        "chat_id": utils.TELEGRAM_CHAT_ID,
+        "text": text,
         "parse_mode": "HTML",
         "reply_markup": {
             "inline_keyboard": [
@@ -147,9 +147,9 @@ def answer_callback(callback_id: str, text: str = "✅"):
 
 def edit_message(message_id: int, text: str):
     tg_api("editMessageText", {
-        "chat_id":    utils.TELEGRAM_CHAT_ID,
+        "chat_id": utils.TELEGRAM_CHAT_ID,
         "message_id": message_id,
-        "text":       text,
+        "text": text,
         "parse_mode": "HTML"
     })
 
@@ -240,7 +240,7 @@ def cmd_hilfe(_args):
         "  /send              — Freigegebene Pitches versenden\n"
         "  /mail              — Posteingang prüfen\n\n"
         "🌐 <b>Website</b>\n"
-        "  /website           — Website bauen &amp; deployen\n\n"
+        "  /website           — Website bauen; Upload-Freigabe kommt nach Vorschau\n\n"
         "📱 <b>Social Media</b>\n"
         "  /social            — Planung → Posts → Assets\n"
         "📊 Monitoring\n"
@@ -254,25 +254,25 @@ def cmd_status(_args):
         def count_status(tab, col, val):
             try:
                 return sum(1 for r in utils.get_sheet_data(tab) if r.get(col) == val)
-            except:
+            except Exception:
                 return "?"
 
         def total(tab):
             try:
                 return len(utils.get_sheet_data(tab))
-            except:
+            except Exception:
                 return "?"
 
-        buchtitel   = utils.get_value_by_key("Allgemeines", "buchtitel")    or "?"
-        autorin     = utils.get_value_by_key("Allgemeines", "autorin_name") or "?"
-        ziel        = get_config("ziel_datenbank_groesse", 50)
+        buchtitel = utils.get_value_by_key("Allgemeines", "buchtitel") or "?"
+        autorin = utils.get_value_by_key("Allgemeines", "autorin_name") or "?"
+        ziel = get_config("ziel_datenbank_groesse", 50)
 
-        kontakte    = total("Rohdaten")
-        top_treffer = count_status("Rohdaten",           "Status", "Top-Treffer")
-        gesendet    = count_status("Kampagnen_Tracking", "Status", "Gesendet")
-        reaktionen  = count_status("Kampagnen_Tracking", "Status", "Reagiert_positiv")
+        kontakte = total("Rohdaten")
+        top_treffer = count_status("Rohdaten", "Status", "Top-Treffer")
+        gesendet = count_status("Kampagnen_Tracking", "Status", "Gesendet")
+        reaktionen = count_status("Kampagnen_Tracking", "Status", "Reagiert_positiv")
         social_wait = count_status("Social_Media_Queue", "Status", "Freigabe_ausstehend")
-        rez_neu     = count_status("Rezension",          "Status", "Neu gefunden")
+        rez_neu = count_status("Rezension", "Status", "Neu gefunden")
 
         send(
             f"📊 <b>Kampagnen-Status</b>\n"
@@ -305,7 +305,7 @@ def cmd_plan(args):
         )
         buttons = [
             {"text": "✅ Ja, planen!", "data": f"run_plan::{fokus}"},
-            {"text": "❌ Abbrechen",   "data": "cancel"}
+            {"text": "❌ Abbrechen", "data": "cancel"}
         ]
     else:
         text = (
@@ -317,7 +317,7 @@ def cmd_plan(args):
         )
         buttons = [
             {"text": "✅ Ja, planen!", "data": "run_plan"},
-            {"text": "❌ Abbrechen",   "data": "cancel"}
+            {"text": "❌ Abbrechen", "data": "cancel"}
         ]
     send_keyboard(text, buttons)
 
@@ -338,7 +338,7 @@ def cmd_recherche(args):
 
     try:
         task_id = f"task_{datetime.now().strftime('%d%H%M%S')}"
-        today   = datetime.now().strftime("%Y-%m-%d")
+        today = datetime.now().strftime("%Y-%m-%d")
         utils.write_to_sheet("Aufgaben", [[
             task_id, "1", nische,
             f"{nische.lower()} rezension kontakt",
@@ -361,12 +361,12 @@ def cmd_pitches(_args):
     hinweis = ""
     try:
         kontakte = utils.get_sheet_data("Rohdaten")
-        bereit   = [k for k in kontakte if k.get("Status") in ("Top-Treffer", "Manuell prüfen")]
+        bereit = [k for k in kontakte if k.get("Status") in ("Top-Treffer", "Manuell prüfen")]
         if bereit:
             hinweis = f"\n\n<b>{len(bereit)} Kontakte</b> bereit für Anschreiben."
         else:
             hinweis = "\n\n⚠️ Noch keine freigegebenen Kontakte in <b>Rohdaten</b>.\nSetze Status auf <i>Top-Treffer</i> oder <i>Manuell prüfen</i>."
-    except:
+    except Exception:
         pass
 
     send_keyboard(
@@ -377,7 +377,7 @@ def cmd_pitches(_args):
         f"Soll ich starten?",
         [
             {"text": "✅ Ja, Pitches generieren!", "data": "run_pitches"},
-            {"text": "❌ Abbrechen",               "data": "cancel"}
+            {"text": "❌ Abbrechen", "data": "cancel"}
         ]
     )
 
@@ -391,7 +391,7 @@ def cmd_send(_args):
             hinweis = f"\n\n<b>{len(bereit)} Entwürfe</b> sind freigegeben und versandbereit."
         else:
             hinweis = "\n\n⚠️ Aktuell keine Einträge mit Status <b>Freigegeben</b> in <b>Kampagnen_Tracking</b>."
-    except:
+    except Exception:
         pass
 
     send_keyboard(
@@ -401,24 +401,18 @@ def cmd_send(_args):
         f"Jetzt starten?",
         [
             {"text": "📤 Ja, jetzt senden!", "data": "run_send"},
-            {"text": "❌ Abbrechen",         "data": "cancel"}
+            {"text": "❌ Abbrechen", "data": "cancel"}
         ]
     )
 
 
 def cmd_website(_args):
-    send_keyboard(
-        "🌐 <b>Website neu bauen</b>\n\n"
-        "1. Daten aus Google Sheets laden\n"
-        "2. Eleventy lokal bauen\n"
-        "3. Screenshot → Telegram-Vorschau\n"
-        "4. FTP-Upload nach deiner Freigabe\n\n"
-        "Jetzt starten?",
-        [
-            {"text": "🚀 Ja, bauen!",  "data": "run_website"},
-            {"text": "❌ Abbrechen",   "data": "cancel"}
-        ]
+    send(
+        "🌐 <b>Website-Build gestartet</b>\n\n"
+        "Ich baue jetzt die Website, aktualisiere das Pressekit und sende dir danach die Vorschau mit Upload-Freigabe."
     )
+    log("INFO", "Befehl /website: starte generate_website.py build")
+    run_script("generate_website.py", args=["build"], background=True, timeout=LONG_RUN_TIMEOUT)
 
 
 def cmd_social(_args):
@@ -432,7 +426,7 @@ def cmd_social(_args):
         "Jetzt starten?",
         [
             {"text": "📱 Ja, Pipeline starten!", "data": "run_social_pipeline"},
-            {"text": "❌ Abbrechen",             "data": "cancel"}
+            {"text": "❌ Abbrechen", "data": "cancel"}
         ]
     )
 
@@ -445,8 +439,8 @@ def cmd_mail(_args):
 
 def cmd_log(args):
     try:
-        n     = min(int(args[0]), 50) if args else 10
-        rows  = utils.get_sheet_data("Logbuch")
+        n = min(int(args[0]), 50) if args else 10
+        rows = utils.get_sheet_data("Logbuch")
         letzte = rows[-n:] if len(rows) >= n else rows
         if not letzte:
             send("📋 Logbuch ist leer.")
@@ -455,9 +449,9 @@ def cmd_log(args):
         text = f"📋 <b>Letzte {len(letzte)} Einträge</b>\n\n"
         for r in reversed(letzte):
             icon = _ICONS.get(r.get("Level", "INFO"), "📌")
-            ts   = str(r.get("Datum_Zeit", ""))[:16]
-            scr  = str(r.get("Script", ""))[:25]
-            msg  = str(r.get("Eintrag", ""))[:120]
+            ts = str(r.get("Datum_Zeit", ""))[:16]
+            scr = str(r.get("Script", ""))[:25]
+            msg = str(r.get("Eintrag", ""))[:120]
             text += f"{icon} <code>{ts}</code>  <i>{scr}</i>\n{msg}\n\n"
         send(text)
     except Exception as e:
@@ -471,15 +465,14 @@ def cmd_review(args):
 
 
 _CALLBACKS = {
-    "run_pitches": ("pitch_generator.py",   "✍️ Pitch-Generator läuft..."),
-    "run_send":    ("pitch_sender.py",      "📤 Pitch-Versand läuft..."),
-    "run_website": ("generate_website.py",  "🌐 Website-Build gestartet..."),
+    "run_pitches": ("pitch_generator.py", [], "✍️ Pitch-Generator läuft..."),
+    "run_send": ("pitch_sender.py", [], "📤 Pitch-Versand läuft..."),
 }
 
 
 def handle_callback(callback: dict):
-    data   = callback.get("data", "")
-    cb_id  = callback["id"]
+    data = callback.get("data", "")
+    cb_id = callback["id"]
     msg_id = callback["message"]["message_id"]
 
     answer_callback(cb_id)
@@ -487,6 +480,17 @@ def handle_callback(callback: dict):
     if data == "cancel":
         edit_message(msg_id, "🛑 Abgebrochen.")
         log("INFO", "Aktion abgebrochen (Telegram)")
+        return
+
+    if data == "website_deploy_yes":
+        edit_message(msg_id, "🚀 Upload freigegeben. Starte Website-Deploy...")
+        log("INFO", "Freigabe via Telegram: generate_website.py deploy")
+        run_script("generate_website.py", args=["deploy"], background=True, timeout=LONG_RUN_TIMEOUT)
+        return
+
+    if data == "website_deploy_no":
+        edit_message(msg_id, "🛑 Website-Upload abgebrochen.")
+        log("INFO", "Website-Upload via Telegram abgebrochen")
         return
 
     if data.startswith("run_plan::"):
@@ -511,29 +515,29 @@ def handle_callback(callback: dict):
         return
 
     if data in _CALLBACKS:
-        script, status_text = _CALLBACKS[data]
+        script, args, status_text = _CALLBACKS[data]
         edit_message(msg_id, f"⏳ {status_text}")
-        log("INFO", f"Freigabe via Telegram: {script}")
-        run_script(script, background=True)
+        log("INFO", f"Freigabe via Telegram: {script} {' '.join(args)}")
+        run_script(script, args=args, background=True)
         return
 
     log("INFO", f"Unbekannter Callback empfangen: {data}")
 
 
 _COMMANDS = {
-    "/hilfe":     cmd_hilfe,
-    "/help":      cmd_hilfe,
-    "/start":     cmd_hilfe,
-    "/status":    cmd_status,
-    "/plan":      cmd_plan,
+    "/hilfe": cmd_hilfe,
+    "/help": cmd_hilfe,
+    "/start": cmd_hilfe,
+    "/status": cmd_status,
+    "/plan": cmd_plan,
     "/recherche": cmd_recherche,
-    "/pitches":   cmd_pitches,
-    "/send":      cmd_send,
-    "/website":   cmd_website,
-    "/social":    cmd_social,
-    "/mail":      cmd_mail,
-    "/log":       cmd_log,
-    "/review":    cmd_review,
+    "/pitches": cmd_pitches,
+    "/send": cmd_send,
+    "/website": cmd_website,
+    "/social": cmd_social,
+    "/mail": cmd_mail,
+    "/log": cmd_log,
+    "/review": cmd_review,
 }
 
 
@@ -542,7 +546,7 @@ def process_update(update: dict):
         handle_callback(update["callback_query"])
         return
 
-    msg  = update.get("message") or update.get("edited_message")
+    msg = update.get("message") or update.get("edited_message")
     if not msg:
         return
 
@@ -550,9 +554,9 @@ def process_update(update: dict):
     if not text.startswith("/"):
         return
 
-    parts   = text.split()
+    parts = text.split()
     cmd_raw = parts[0].split("@")[0].lower()
-    args    = parts[1:]
+    args = parts[1:]
 
     handler = _COMMANDS.get(cmd_raw)
     if handler:
@@ -584,7 +588,7 @@ def check_scheduled_tasks():
 
     try:
         last_daily = datetime.strptime(str(get_config("letzter_daily_run", "2000-01-01"))[:10], "%Y-%m-%d")
-    except:
+    except Exception:
         last_daily = datetime.min
 
     if now.hour >= 8 and last_daily < today:
@@ -599,7 +603,7 @@ def check_scheduled_tasks():
 
     try:
         last_weekly = datetime.strptime(str(get_config("letzter_weekly_run", "2000-01-01"))[:10], "%Y-%m-%d")
-    except:
+    except Exception:
         last_weekly = datetime.min
 
     if now.weekday() == 0 and now.hour >= 9 and last_weekly < today - timedelta(days=6):
@@ -614,7 +618,7 @@ def check_scheduled_tasks():
 
 
 def main():
-    log("OK",   f"🤖 Telegram Controller v{VERSION} gestartet")
+    log("OK", f"🤖 Telegram Controller v{VERSION} gestartet")
     log("INFO", f"Chat-ID: {utils.TELEGRAM_CHAT_ID}")
 
     offset = load_offset()
@@ -626,7 +630,7 @@ def main():
         send("🔴 <b>Buchmarketing Agentur offline.</b>")
         sys.exit(0)
 
-    signal.signal(signal.SIGINT,  shutdown)
+    signal.signal(signal.SIGINT, shutdown)
     signal.signal(signal.SIGTERM, shutdown)
 
     send(
@@ -635,7 +639,7 @@ def main():
         f"Tippe /hilfe für alle Befehle."
     )
 
-    tg_url    = f"https://api.telegram.org/bot{utils.TELEGRAM_TOKEN}/getUpdates"
+    tg_url = f"https://api.telegram.org/bot{utils.TELEGRAM_TOKEN}/getUpdates"
     err_count = 0
 
     while True:
@@ -643,8 +647,8 @@ def main():
             resp = requests.get(
                 tg_url,
                 params={
-                    "timeout":         TG_TIMEOUT,
-                    "offset":          offset,
+                    "timeout": TG_TIMEOUT,
+                    "offset": offset,
                     "allowed_updates": ["message", "callback_query"]
                 },
                 timeout=TG_TIMEOUT + 5
