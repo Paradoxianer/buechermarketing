@@ -32,6 +32,7 @@ RAW_TAB = "Rohdaten"
 TRACKING_TAB = "Kampagnen_Tracking"
 GENERAL_TAB = "Allgemeines"
 CONFIG_TAB = "Konfiguration"
+BOOKS_TAB = "Books"
 LOG_TAB = "Logbuch"
 
 DEFAULT_MODEL = "llama3:8b"
@@ -83,7 +84,7 @@ def get_general_value(key: str, default=""):
     try:
         value = utils.get_value_by_key(GENERAL_TAB, key)
         return value if value not in (None, "") else default
-    except:
+    except Exception:
         return default
 
 
@@ -91,8 +92,24 @@ def get_config_value(key: str, default=""):
     try:
         value = utils.get_value_by_key(CONFIG_TAB, key)
         return value if value not in (None, "") else default
-    except:
+    except Exception:
         return default
+
+
+def get_rows(tab_name: str):
+    try:
+        return utils.get_sheet_data(tab_name)
+    except Exception as e:
+        log("WARNUNG", f"Tab konnte nicht geladen werden ({tab_name}): {e}")
+        return []
+
+
+def pick_value(row, candidates, default=""):
+    for key in candidates:
+        value = row.get(key)
+        if value not in (None, ""):
+            return str(value).strip()
+    return default
 
 
 def build_llm():
@@ -100,7 +117,7 @@ def build_llm():
     temp_raw = get_config_value("ollama_temperature", str(DEFAULT_TEMP))
     try:
         temperature = float(temp_raw)
-    except:
+    except Exception:
         temperature = DEFAULT_TEMP
     return OllamaLLM(model=model, temperature=temperature)
 
@@ -161,6 +178,55 @@ def update_raw_status_by_key(typ: str, medium_name: str, email: str, new_status:
     except Exception as e:
         log("WARNUNG", f"Rohdaten-Status konnte nicht aktualisiert werden ({medium_name}): {e}")
     return False
+
+
+# ─────────────────────────────────────────────────────────────
+# BUCHKONTEXT
+# ─────────────────────────────────────────────────────────────
+
+def get_book_context():
+    titel = get_general_value("buchtitel", get_general_value("book_name", "What is Love?"))
+    autorin = get_general_value("autorin_name", "Anni E. Lindner")
+    genre = get_general_value("genre", "Jugendbuch")
+    zielsetzung = get_general_value("zielsetzung", "Bekanntheit steigern")
+
+    beschreibung = ""
+    isbn = ""
+    alter = ""
+    seiten = ""
+    preis = ""
+    erscheinungsdatum = ""
+    lovelybooks = get_general_value("lovelybooks_url", "")
+    website = get_general_value("website_url", "")
+
+    ziel_titel = titel.strip().lower()
+    for row in get_rows(BOOKS_TAB):
+        row_titel = pick_value(row, ["titel", "Titel", "Buchtitel", "buchtitel"]).strip().lower()
+        if ziel_titel and row_titel == ziel_titel:
+            beschreibung = pick_value(row, ["beschreibung", "Beschreibung", "Klappentext", "Kurzbeschreibung"])
+            isbn = pick_value(row, ["isbn_print", "ISBN", "isbn"])
+            alter = pick_value(row, ["altersempfehlung", "Altersempfehlung"])
+            seiten = pick_value(row, ["seitenanzahl", "Seiten", "seiten"])
+            preis = pick_value(row, ["preis_print", "Preis", "preis"])
+            erscheinungsdatum = pick_value(row, ["erscheinungsdatum", "Erscheinungsdatum"])
+            lovelybooks = pick_value(row, ["lovelybooks_url", "LovelyBooks_URL"], lovelybooks)
+            break
+
+    return {
+        "titel": titel,
+        "autorin": autorin,
+        "genre": genre,
+        "beschreibung": beschreibung,
+        "zielsetzung": zielsetzung,
+        "isbn": isbn,
+        "alter": alter,
+        "seiten": seiten,
+        "preis": preis,
+        "erscheinungsdatum": erscheinungsdatum,
+        "lovelybooks": lovelybooks,
+        "website": website,
+        "heilsarmee_hinweis": "Der Erlös des Buchprojekts kommt der sozialen Arbeit der Heilsarmee Chemnitz zugute.",
+    }
 
 
 # ─────────────────────────────────────────────────────────────
@@ -325,6 +391,14 @@ BUCH:
 - Genre: {buch['genre']}
 - Beschreibung: {buch['beschreibung']}
 - Zielsetzung: {buch['zielsetzung']}
+- Erscheinungsdatum: {buch['erscheinungsdatum']}
+- Altersempfehlung: {buch['alter']}
+- Seiten: {buch['seiten']}
+- Preis: {buch['preis']}
+- ISBN: {buch['isbn']}
+- Website: {buch['website']}
+- LovelyBooks: {buch['lovelybooks']}
+- Zusatzinfo: {buch['heilsarmee_hinweis']}
 
 KONTAKT:
 - Medium/Name: {kontakt['medium']}
@@ -349,6 +423,8 @@ AUFGABE:
 - Biete ein Rezensionsexemplar oder weitere Informationen an.
 - Verwende keine übertriebenen Werbeformulierungen.
 - Keine Signatur ergänzen.
+- Der Hinweis, dass der Erlös der sozialen Arbeit der Heilsarmee Chemnitz zugutekommt, darf eingebaut werden, wenn er organisch zu Kontakt und Medium passt.
+- Erwähne diesen Hinweis nicht zwanghaft in jeder Mail; nutze ihn als glaubwürdigen Zusatznutzen.
 
 ANTWORTFORMAT:
 BETREFF: <eine einzige Betreffzeile>
@@ -388,13 +464,7 @@ def send_summary_to_telegram(created_count: int, skipped_count: int):
 def main():
     log("INFO", "Pitch Generator gestartet")
 
-    buch = {
-        "titel": get_general_value("buchtitel", "What is Love?"),
-        "autorin": get_general_value("autorin_name", "Anni E. Lindner"),
-        "genre": get_general_value("genre", "Jugendbuch"),
-        "beschreibung": get_general_value("zielsetzung", ""),
-        "zielsetzung": get_general_value("zielsetzung", "Bekanntheit steigern"),
-    }
+    buch = get_book_context()
 
     contacts = select_contacts_for_pitching()
     if not contacts:
