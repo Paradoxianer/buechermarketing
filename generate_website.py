@@ -224,53 +224,47 @@ def copy_if_exists(src, dst):
 
 
 def build_presskit(fokus_buch, website_content):
-    print("[📦 PRESSEKIT] Erzeuge hochwertiges Pressekit...")
+    print("[📦 PRESSEKIT] Erzeuge Pressekit mit PDFs und Bildern...")
     os.makedirs(ELEVENTY_DOWNLOADS_DIR, exist_ok=True)
 
+    # Ordner vorbereiten
     if os.path.exists(PRESSKIT_WORK_DIR):
         shutil.rmtree(PRESSKIT_WORK_DIR)
     os.makedirs(PRESSKIT_WORK_DIR, exist_ok=True)
+    
+    # Unterordner für Struktur
+    bilder_dir = os.path.join(PRESSKIT_WORK_DIR, "bilder")
+    os.makedirs(bilder_dir, exist_ok=True)
 
-    socials = {r["Key"]: r["Value"] for r in website_content if r.get("Bereich") == "Social"}
-    lesungen = {r["Key"]: r["Value"] for r in website_content if r.get("Bereich") == "Lesungen"}
+    # 1. PDFs aus pressekit/ kopieren
+    pressekit_src = "agentur_wissen/pressekit"
+    if os.path.exists(pressekit_src):
+        for file in os.listdir(pressekit_src):
+            if file.endswith(".pdf"):
+                shutil.copy2(os.path.join(pressekit_src, file), PRESSKIT_WORK_DIR)
+                print(f"   + Kopiert: {file}")
 
-    safe_write_text(os.path.join(PRESSKIT_WORK_DIR, "00_Presseinfo_Anni_E_Lindner.txt"), build_press_overview(fokus_buch, socials))
-    safe_write_text(os.path.join(PRESSKIT_WORK_DIR, "01_Autorin_Kurzbio.txt"), AUTHOR_SHORT_BIO)
-    safe_write_text(os.path.join(PRESSKIT_WORK_DIR, "02_Autorin_Langbio.txt"), AUTHOR_LONG_BIO)
-    safe_write_text(
-        os.path.join(PRESSKIT_WORK_DIR, f"03_Buchinfo_{fokus_buch.get('titel', 'Buch').replace(' ', '_').replace('?', '')}.txt"),
-        build_book_press_text(fokus_buch),
-    )
-    safe_write_text(
-        os.path.join(PRESSKIT_WORK_DIR, f"04_Faktenblatt_{fokus_buch.get('titel', 'Buch').replace(' ', '_').replace('?', '')}.txt"),
-        format_book_facts(fokus_buch),
-    )
-    safe_write_text(os.path.join(PRESSKIT_WORK_DIR, "05_Pressefragen_und_Themen.txt"), build_press_questions(fokus_buch))
-    safe_write_text(
-        os.path.join(PRESSKIT_WORK_DIR, "06_Lesungen_und_Veranstaltungen.txt"),
-        (
-            "LESUNGEN & VERANSTALTUNGEN\n"
-            "==========================\n\n"
-            f"Buchbar für: {lesungen.get('buchbar_fuer', '')}\n"
-            f"Honorarbasis: {lesungen.get('honorar_basis', '')}\n"
-            f"Technik-Anforderung: {lesungen.get('technik_anforderung', '')}\n"
-            "Anfragen bitte per E-Mail an info@anni-lindner.de\n"
-        ),
-    )
-
+    # 2. Bilder kopieren & Bildnachweis erstellen
     cover_name = fokus_buch.get("cover_datei", "")
     cover_src = os.path.join(BILDER_SOURCE_DIR, cover_name) if cover_name else ""
     author_src = os.path.join(BILDER_SOURCE_DIR, AUTHOR_IMAGE_NAME)
 
-    copied_cover = copy_if_exists(cover_src, os.path.join(PRESSKIT_WORK_DIR, "bilder", cover_name or "cover.png"))
-    copied_author = copy_if_exists(author_src, os.path.join(PRESSKIT_WORK_DIR, "bilder", AUTHOR_IMAGE_NAME))
+    # Kopiere Bilder
+    copied_cover = copy_if_exists(cover_src, os.path.join(bilder_dir, cover_name or "cover.png"))
+    copied_author = copy_if_exists(author_src, os.path.join(bilder_dir, AUTHOR_IMAGE_NAME))
 
+    # Erstelle Bildnachweis, falls Bilder kopiert wurden
     if copied_cover or copied_author:
-        safe_write_text(
-            os.path.join(PRESSKIT_WORK_DIR, "bilder", "bildnachweis.txt"),
-            "Autorenfoto: Anni E. Lindner (© Foto: Maggie Renger)\nCover: bereitgestellt für Presse, Rezensionen und Berichterstattung.",
+        nachweis_text = (
+            "BILDNACHWEIS\n"
+            "============\n\n"
+            "Autorenfoto: Anni E. Lindner (© Foto: Maggie Renger)\n"
+            "Cover: bereitgestellt für Presse, Rezensionen und Berichterstattung."
         )
+        safe_write_text(os.path.join(bilder_dir, "Bildnachweise.txt"), nachweis_text)
+        print("   + Bildnachweise.txt erstellt")
 
+    # ZIP erstellen
     zip_path = os.path.join(ELEVENTY_DOWNLOADS_DIR, PRESSKIT_ZIP_NAME)
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for root, _, files in os.walk(PRESSKIT_WORK_DIR):
@@ -279,9 +273,8 @@ def build_presskit(fokus_buch, website_content):
                 arcname = os.path.relpath(full_path, PRESSKIT_WORK_DIR)
                 zf.write(full_path, arcname)
 
-    print(f"[📦 PRESSEKIT] ZIP erstellt: {zip_path}")
+    print(f"[📦 PRESSEKIT] ZIP fertig: {zip_path}")
     return zip_path
-
 
 def upload_directory_to_ftp():
     import socket
